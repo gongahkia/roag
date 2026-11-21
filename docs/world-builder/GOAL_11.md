@@ -1,8 +1,7 @@
 # Goal 11 · A connected region
 
-**Implementation in progress.** This record is not a completion or deployment
-claim. Goal 12 has not started. The requested Sudo/Debug panel and 20× controls
-are explicitly deferred until Goal 11 is complete.
+**Implemented and verified.** Goal 12 has not started. The requested Sudo/Debug
+panel and 20× controls are a separate, explicitly deferred follow-up.
 
 ## Baseline and preservation
 
@@ -75,8 +74,7 @@ Inactive towns run the same pure authoritative model, without another Flame worl
 rendering, camera, speech presentation or per-frame animation. This initial
 contract uses exact model work, not inferred successful activities. Switching does
 not advance time. Positions, trips, employment, incidents and session-local
-construction histories remain owned by each existing Colony instance. Performance
-and practical limits still require final measurements.
+construction histories remain owned by each existing Colony instance. Measurements and practical limits are recorded below.
 
 ## Production and shipments
 
@@ -232,7 +230,7 @@ construction Undo stacks are session-local, not a new persisted time machine.
 | `test/goal11_*`, `tool/goal11_*` | Focused deterministic regressions, labelled fixtures, actual release input, motion and measurements |
 | `.github/workflows/settlement.yml` | Existing pinned test/build/Pages workflow extended to the exact Goal11 release branch |
 
-## Verification record (final audit in progress)
+## Verification record
 
 The final app suite passes **243 tests in CI** (242 in the first full local run, followed by the new
 Centre/Monument regression and the five-test safety rerun). The final terminal
@@ -272,8 +270,7 @@ resize, export/import and switch checks. These distinctions remain in raw logs.
 Browser inputs are Playwright mouse/wheel/keyboard against the actual release,
 plus a separate native XTest run for genuine 110% browser zoom. Headless Dart
 fixtures are explicitly labelled; they are not manual play. Human enjoyment and
-balance remain unverified. Final performance, hosted URL and evidence results are
-added below after their actual runs.
+balance remain unverified. Performance, hosted URL and moving evidence results follow below.
 
 ## Public release and actual browser evidence
 
@@ -318,3 +315,168 @@ reset, rebase or force push occurred. Automatic `work~` checkpoints were retaine
   [deployment](evidence/goal-11/deployment.json),
   [local full suite](evidence/goal-11/tests-final.log),
   [terminal cargo continuation](evidence/goal-11/trade-terminal-final.log).
+
+## Performance and limits
+
+Measurements use Flutter 3.50.0 / Dart 3.14, Chromium 155/SwiftShader on the same
+shared Linux machine. The pre-Goal11 `7e013b9e` application was independently
+exported and release-built without copying/creating any README. Identical saved
+85/500-resident fixtures are loaded in both. Only one owned browser runs during
+samples, without simultaneous owned builds, test runners or video encoding.
+Unrelated user applications are left alone. Each browser case samples 16 wall
+seconds at 1× after warmup. Timings are internal observations, not hardware-GPU
+frame-rate or physical display/input guarantees.
+
+| Browser case | Mean model / p95 ms | Frame p95 ms | Background / trade mean ms per frame |
+|---|---:|---:|---:|
+| Baseline, 85 active | 0.457 / 1.600 | 66.6 | — |
+| Goal11, 85 active | 0.590 / 1.701 | 66.7 | 0 / 0.011 |
+| Baseline, 500 active | 2.223 / 5.900 | 83.4 | — |
+| Goal11, 500 active | 2.469 / 6.601 | 100.0 | 0 / 0.013 |
+| Three actual generated biomes, 20 residents, active trade | 0.326 / 1.099 | 50.1 | 0.111 / 0.019 |
+| Four developed grid towns, 85 active +255 inactive | 1.185 / 3.899 | 50.0 | 0.818 / 0.023 |
+| Four towns, 500 active +255 inactive | 2.940 / 7.600 | 66.7 | 1.013 / 0.031 |
+
+The first 500 comparison adds **0.701 ms model p95** and 16.6 ms frame p95.
+This was investigated rather than omitted. Reversing the order gives Goal11
+**2.041/6.099 ms model, 66.7 ms frame p95**, baseline **2.196/6.100 ms model,
+83.3 ms frame p95**. The earlier exploratory run retained still slower tails
+(up to 116.6 ms frame p95). These overlapping, order-sensitive samples do not
+establish a consistent frame regression or improvement. There is measured
+additional background work; there is no 60-fps claim. Raw maxima include a 300 ms
+frame in the 755-person run. The existing 50 ms foreground delta cap remains;
+under stalls, 16 wall seconds advances roughly 13.85–15.60 simulated seconds.
+
+Browser regional scheduling costs about 0.002–0.006 ms/frame. Three inactive
+85-person towns perform real model work, without sprite/render worlds. The
+three-biome fixture uses real generated terrain and actual trade. Large fixtures
+explicitly author connected scaling grids using real housing/residents and normal
+construction, not fake population or earned-income counters.
+
+Pure Dart VM, 2,000 measured 50 ms ticks followed by **1,000 more simulated
+seconds** per region, gives:
+
+| Region | Mean tick / p95 ms | Active / background / trade ms per tick | Mean save / load ms | UTF-8 export bytes |
+|---|---:|---:|---:|---:|
+| Three biomes, 20 residents | 0.235 / 0.691 | 0.100 / 0.101 / 0.025 | 16.25 / 22.18 | 247,329 |
+| Four towns, 340 residents | 0.479 / 1.070 | 0.144 / 0.325 / 0.006 | 36.85 / 56.80 | 636,589 |
+| Four towns, 755 residents | 1.494 / 3.510 | 1.086 / 0.393 / 0.010 | 65.93 / 101.00 | 1,089,120 |
+
+All town clocks remain equal through the seasonal run; completed deliveries are
+15/4/7 respectively. Model-only town identity switching averages 0.24–0.65 µs;
+this excludes rendering/save/UI. Real pointer-down to an **observed post-switch
+animation frame** is 522–636 ms including browser-driver observation overhead,
+not a physical latency measurement. Reload to accessible UI is 2.34–2.93 seconds.
+No new-world generation occurs when switching a founded town.
+
+The standalone before/after VM workload preserves exact export sizes (157,547 and
+612,910 bytes). Mean model cost is 0.451→0.328 ms at 85 and 1.875→1.309 ms at 500;
+shared-host/JIT variation prevents attributing that improvement to this change.
+
+Regional packing reduces the 755-person browser snapshot from 1,056,809 to
+748,519 UTF-16 code units. Browser codec save/unpack takes approximately 16.9/29 ms
+there (separate from Dart encode/decode). Lossless packing, storage-write failure
+and unchanged old raw bytes have explicit tests. Browser quotas still apply;
+there is no claim that every possible ten-town, 500-resident-per-town world fits.
+The tested ceiling is **755 actual residents across four towns**. Ten generated
+sites are the geography size, not an invented performance population cap. Export
+remains available if local storage fills; quota failure preserves the prior save.
+
+[Direct baseline](evidence/goal-11/performance-browser-before.json),
+[final browser](evidence/goal-11/performance-browser-final.json),
+[reverse-order Goal11](evidence/goal-11/performance-500-after-reverse.json),
+[reverse-order baseline](evidence/goal-11/performance-500-before-reverse.json),
+[initial exploratory sample](evidence/goal-11/performance-browser-initial.json),
+[regional VM](evidence/goal-11/performance-region-vm.json),
+[initial standalone VM](evidence/goal-11/performance-baseline.json),
+[final standalone VM](evidence/goal-11/performance-standalone-after.json).
+
+## Moving evidence and reproduction
+
+[**58-second actual public gameplay recording**](evidence/goal-11/region-journey.mp4)
+shows the developed legacy town, regional map, paid founding, Woodland building,
+automatic relationship, local caravan departure, regional travel, actual Market
+arrival, Pine town, Network benefit and continued construction. It is an edited
+sequence of **real rendered frames**, with no retiming, mock footage or synthetic
+frames. The visible 4×/16× controls are normal game speed. The recording is silent.
+[Cut timestamps](evidence/goal-11/recording-cuts.json) map it to the public run's
+387-second capture; [motion frame A](evidence/goal-11/motion-a.png) and
+[frame B](evidence/goal-11/motion-b.png) show the actual pack traveller moving
+out along the road. The rendered frames and screenshots were visually inspected.
+
+From `apps/settlement`, with the pinned SDK and existing Playwright dependency:
+
+```sh
+flutter pub get --enforce-lockfile
+flutter analyze
+dart format --output=none --set-exit-if-changed lib test
+flutter test
+python3 -B tool/assets.py --check
+node tool/storage_codec_test.cjs
+bash tool/release.sh /roag/settlement/
+python3 -B tool/serve.py --port 0 --base-path /roag/settlement/ --build-dir build/site/settlement
+dart run tool/goal11_fixture.dart /var/tmp/roag-goal11/fixtures
+# set SETTLEMENT_URL to the printed URL; browser scripts accept output directories
+node tool/goal11_browser.cjs /var/tmp/roag-goal11/browser
+node tool/goal11_edges.cjs /var/tmp/roag-goal11/edges
+node tool/goal11_performance.cjs /var/tmp/roag-goal11/performance-browser.json
+dart run tool/goal11_performance.dart
+```
+
+`SETTLEMENT_FIXTURE_DIR` selects another fixture directory, `SETTLEMENT_CASES`
+selects the measured cases, `?profile=1` enables the existing bounded model samples.
+Native verification uses `tool/goal11_native.cjs` in an isolated Xvfb display plus
+xdotool, with raw CDP only for navigation/setup/read-only observation. This run
+used external `/var/tmp/roag-goal09-tools` SDK/Node/browser caches. No global SDK,
+user desktop configuration or private profile was changed. Root validators remain
+`make assets-check` and `make catalog-test` (the latter retains its baseline
+tracked-media allow-list failure).
+
+## Preservation and completion audit
+
+All **six README hashes match**, including root SHA256
+`3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a`.
+The original 238 Lua files, four original Lua storage files, 755 source
+artwork/catalogue-related files and all 86 pre-existing settlement PNGs match the
+initial fingerprints. The user's private town was protected by never opening a
+private browser profile. Only checked-in or explicitly generated disposable
+fixtures were imported. Lua runtime journeys were not rerun for this Dart-only
+feature; source/storage fingerprints and the original asset validator pass.
+[Initial fingerprints](evidence/goal-11/preservation-initial.json),
+[final fingerprints](evidence/goal-11/preservation-final.json).
+
+| Required area | Evidence |
+|---|---|
+| Deterministic geography, reachable expansion and new biomes | 600-region graph sweep, eight-preset 600-seed terrain sweep, two targeted 100-seed biome sweeps, actual Woodland/Pine/Coast rendering |
+| At least three functioning towns, genuine goods and useful autonomous trade | Full normal paid public seed202 journey, actual workers/Market visits, zero-sum reservation/payment tests |
+| Shared timeline and trustworthy background state | Exact standalone/background and 30/120-Hz tests, seasonal browser return, four-town 1000-second VM continuation |
+| Recoverable regional situations and progression | Actual brigand closure/recovery, Peaceful return, Standard loss/refund, real merchant opportunity, three projects and latched Centre tests |
+| Migration, histories and financial boundaries | Exact legacy backup/subset preservation, in-transit reload, terminal continuation, whole-region file round-trip, invalid import/quota fault, forward Undo |
+| Existing building-first controls and pleasant switching | Right sidebar preserved, actual paid construction, camera/home/resize, native 110% W/select/switch/Escape, single Flame renderer |
+| Performance and release | 85/500 direct pre-goal comparison,755-person regional case, successful pinned CI/Pages workflow and 13 actual hosted checks |
+
+No required implementation or deployment blocker remains. Goal 12 has not started.
+The requested Sudo/Debug view and 20× controls remain a separate follow-up until
+this goal is complete.
+
+Known limits: ten sites, one global Monument project, renewable standing timber
+rather than tree depletion, broad goods without household inventories, no tactical
+regional combat, exact background model ticks without aggregation, bounded
+history/archive, session-local construction Undo, and browser storage quota.
+Existing stock/collected cargo can continue supplying a town after production
+stops; lost access stops **new work**, not supplies already produced. Founding and
+camera visits are immediate setup/navigation operations through known geography;
+temporary regional closures govern actual cargo journeys. Safari, Firefox,
+mobile/touch ergonomics and populations beyond the measured cases remain
+unverified. Human enjoyment and balance are not established by scripted success.
+
+1. Does founding another settlement give me a satisfying long-term goal?
+2. Are different regions genuinely interesting to develop?
+3. Does regional trading feel useful without requiring micromanagement?
+4. Can I understand why caravans succeed or fail?
+5. Does the region feel like a coherent connected world?
+6. Do background settlements progress believably?
+7. Do progression milestones and regional projects make me want to continue playing?
+8. Is switching between towns easy and pleasant?
+9. Does the game remain responsive with several settlements?
+10. Do I still spend most of my time enjoying construction and watching inhabitants?

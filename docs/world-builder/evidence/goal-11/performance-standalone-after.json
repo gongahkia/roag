@@ -1,0 +1,52 @@
+{
+  "85": {
+    "model": {
+      "samples": 1000,
+      "meanUs": 328.095,
+      "p95Us": 880,
+      "maxUs": 7350
+    },
+    "save": {
+      "samples": 10,
+      "meanUs": 9471.4,
+      "p95Us": 33843,
+      "maxUs": 33843
+    },
+    "load": {
+      "samples": 10,
+      "meanUs": 21382.5,
+      "p95Us": 89919,
+      "maxUs": 89919
+    },
+    "saveBytes": 157547,
+    "clock": 54.99999999999901,
+    "money": 282751,
+    "routeSearches": 3416,
+    "expansions": 78720
+  },
+  "500": {
+    "model": {
+      "samples": 1000,
+      "meanUs": 1308.565,
+      "p95Us": 2996,
+      "maxUs": 7589
+    },
+    "save": {
+      "samples": 10,
+      "meanUs": 14969.6,
+      "p95Us": 17647,
+      "maxUs": 17647
+    },
+    "load": {
+      "samples": 10,
+      "meanUs": 27460.7,
+      "p95Us": 36527,
+      "maxUs": 36527
+    },
+    "saveBytes": 612910,
+    "clock": 54.99999999999901,
+    "money": 284786,
+    "routeSearches": 18091,
+    "expansions": 753990
+  }
+}

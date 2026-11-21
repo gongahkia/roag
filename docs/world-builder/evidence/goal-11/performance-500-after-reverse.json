@@ -1,0 +1,65 @@
+{
+  "url": "http://127.0.0.1:34257/roag/settlement/?profile=1",
+  "browser": "Chromium 155 / SwiftShader, shared Linux host",
+  "sampling": "16 wall-seconds at 1×, no concurrent owned builds/browsers; internal timings are not physical input/display latency",
+  "results": [
+    {
+      "name": "single-scale-500",
+      "switchObservedMs": null,
+      "reloadUsableMs": 3256,
+      "frameMs": {
+        "mean": 38.71159420290215,
+        "p95": 66.70000000000073,
+        "max": 166.60000000000218
+      },
+      "modelUs": {
+        "mean": 2040.7320675105486,
+        "p95": 6099,
+        "max": 16500
+      },
+      "presentationUs": {
+        "mean": 760.3227848101266,
+        "p95": 1601,
+        "max": 4699
+      },
+      "advanced": 14.650000000000098,
+      "activeModelUsPerFrame": 2006.928270042194,
+      "backgroundModelUsPerFrame": 0,
+      "tradeUsPerFrame": 11.824894514767932,
+      "regionalSchedulingUsPerFrame": 4.012658227848101,
+      "storage": {
+        "codecSaveMs": 14.300000000745058,
+        "storedCharacters": 406296,
+        "exportCharacters": 604669,
+        "loadMs": 18.300000000745058,
+        "clocks": [
+          17.050000000000107
+        ]
+      },
+      "metrics": {
+        "modelCalls": 549,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 800,
+        "incidentActors": 0,
+        "routeSearches": 8353,
+        "population": 500,
+        "clock": 16.400000000000098,
+        "cacheHits": 7787,
+        "expansions": 348090,
+        "fieldsBuilt": 566,
+        "planningBacklog": 0,
+        "planned": 919,
+        "discardedPlans": 0,
+        "navigationRevision": 518,
+        "towns": 1,
+        "backgroundPopulation": 0,
+        "activeModelUs": 1216986,
+        "backgroundModelUs": 0,
+        "tradeUs": 7703,
+        "regionalSchedulingUs": 2901
+      }
+    }
+  ]
+}
