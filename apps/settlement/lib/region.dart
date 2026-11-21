@@ -146,12 +146,20 @@ class SettlementRegion {
     Colony colony, {
     String name = 'First Hearth',
   }) {
-    final seed = colony.world.generation?.seedText ?? '${colony.world.seed}';
+    if (colony.visits.values.any((v) => v.freight != null)) {
+      throw const FormatException(
+        'Regional cargo needs its complete regional save.',
+      );
+    }
+    final original = colony.world.generation?.seedText;
+    final seed = original != null && seedNumber(original) == colony.world.seed
+        ? original
+        : '${colony.world.seed}';
     final g = RegionalGeography.generate(
       seed,
       colony.world.generation?.preset ?? EnvironmentPreset.plains,
     );
-    final town = RegionalTown('site-00', name, colony)..recognise();
+    final town = RegionalTown('site-00', _name(name), colony)..recognise();
     return SettlementRegion._(g, {'site-00': town}, {'site-00'}, 'site-00');
   }
   void _wireTown(RegionalTown town) {
@@ -417,6 +425,12 @@ class SettlementRegion {
     for (final id in raw['discovered']) {
       if (id is! String || !known.contains(id) || !discovered.add(id)) bad();
     }
+    if (!discovered.contains('site-00') ||
+        discovered.any(
+          (id) => geography.path('site-00', id, known: discovered) == null,
+        )) {
+      bad();
+    }
     final towns = <String, RegionalTown>{};
     for (final value in raw['towns']) {
       if (value is! Map ||
@@ -427,6 +441,12 @@ class SettlementRegion {
         bad();
       }
       final c = Colony.decode(jsonEncode(value['colony']));
+      final site = geography.site(value['site']);
+      if (value['site'] != 'site-00' &&
+          (c.world.seed != seedNumber(site.terrainSeed) ||
+              c.world.generation?.preset != site.environment)) {
+        bad();
+      }
       final stage = DevelopmentStage.values.firstWhere(
         (s) => s.name == value['stage'],
         orElse: () => throw const FormatException('Invalid development stage.'),
@@ -437,6 +457,7 @@ class SettlementRegion {
         c,
         stage: stage,
       );
+      if (town.name != value['name']) bad();
       for (final (key, target) in [
         ('stock', town.stock),
         ('supplied', town.supplied),
@@ -453,8 +474,13 @@ class SettlementRegion {
         town.productionProgress[g] = number(
           value['productionProgress'][g.name],
           0,
-          120,
+          g == TradeGood.provisions ? 8 : 12,
         );
+        if (town.stock[g]! > 64 ||
+            town.stock[g]! > town.produced[g]! ||
+            town.supplied[g]! > 32) {
+          bad();
+        }
       }
       town.foundingSpent = integer(value['foundingSpent']);
       town.importsSpent = integer(value['importsSpent']);
@@ -467,7 +493,11 @@ class SettlementRegion {
         bad();
       }
       town.landmark = value['landmark'];
-      town.provisionBenefitUntil = number(value['provisionBenefitUntil']);
+      town.provisionBenefitUntil = number(
+        value['provisionBenefitUntil'],
+        0,
+        c.clock + 60.001,
+      );
       if (value['camera'] != null) {
         final camera = value['camera'];
         if (camera is! List || camera.length != 3) bad();
@@ -495,12 +525,14 @@ class SettlementRegion {
           (t) =>
               t.colony.clock != region.clock ||
               t.colony.speed != region.speed ||
+              t.colony.session.unlimited != region.freeBuild ||
               t.colony.remainder != region.capital.colony.remainder,
         )) {
       bad();
     }
     region.nextRegionalAt = number(raw['nextRegionalAt']);
     region.nextFact = integer(raw['nextFact']);
+    if (region.nextFact < 1) bad();
     final facts = <String>{};
     for (final fact in raw['history']) {
       if (fact is! Map ||

@@ -292,8 +292,8 @@ class _RegionMapDialogState extends State<RegionMapDialog> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 7),
                   child: small(
-                    '${good.label}: ${region.goodsAvailable(town, good) >= 6
-                        ? 'Producing surplus'
+                    '${good.label}: ${town.stock[good]! >= 6
+                        ? 'Local surplus'
                         : region.goodsAvailable(town, good) > 0
                         ? 'Balanced'
                         : 'In need of supply'}',
@@ -595,6 +595,7 @@ class RegionalMap extends StatelessWidget {
               width: 44,
               height: 44,
               child: Semantics(
+                identifier: 'regional-${site.id}',
                 button: true,
                 selected: site.id == selected,
                 label:
@@ -665,6 +666,8 @@ class _RegionalPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.clipRect(Offset.zero & size, doAntiAlias: false);
     canvas.drawRect(
       Offset.zero & size,
       Paint()..color = const Color(0xff233329),
@@ -708,8 +711,9 @@ class _RegionalPainter extends CustomPainter {
                         7103,
                       ) %
                       3 ==
-                  0)
+                  0) {
             continue;
+          }
           art[frame]?.render(
             canvas,
             position: Vector2(centre.dx + dx * 18 - 8, centre.dy + dy * 18 - 8),
@@ -867,6 +871,7 @@ class _RegionalPainter extends CustomPainter {
           ),
       );
     }
+    canvas.restore();
   }
 
   @override

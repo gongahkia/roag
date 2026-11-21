@@ -36,7 +36,8 @@ class RegionalShipment {
   final TradeGood good;
   final int quantity, price;
   final double created;
-  final String originMarket, destinationMarket;
+  final String originMarket;
+  String destinationMarket;
   ShipmentState state = ShipmentState.loading;
   bool collected = false, returning = false;
   String node, reason = 'Collecting at the origin Market';
@@ -103,37 +104,44 @@ extension RegionalCommerce on SettlementRegion {
   }
 
   WeatherKind weatherAt(String site) =>
-      towns[site]?.colony.weather ??
+      towns[site]?.colony.climate.at(clock) ??
       Climate(
         seedNumber(geography.site(site).terrainSeed),
         calendar: capital.colony.climate.calendar,
         environment: geography.site(site).environment,
       ).at(clock);
-  Set<String> get closedConnections {
-    final closed = <String>{};
-    for (final e in geography.connections) {
-      if (e.terrain == 'pass' &&
-          weatherAt(e.a) == WeatherKind.snow &&
-          weatherAt(e.b) == WeatherKind.snow) {
-        closed.add(e.id);
+  String? connectionReason(RegionalConnection edge) {
+    if (!discovered.contains(edge.a) || !discovered.contains(edge.b)) {
+      return null;
+    }
+    if (edge.terrain == 'pass' &&
+        weatherAt(edge.a) == WeatherKind.snow &&
+        weatherAt(edge.b) == WeatherKind.snow) {
+      return 'Winter snow closes this exposed pass. Caravans wait or take an open alternate at a reached site.';
+    }
+    for (final id in [edge.a, edge.b]) {
+      final town = towns[id], incident = town?.colony.incident;
+      if (town == null ||
+          incident == null ||
+          incident.state == 'retreating' ||
+          incident.state == 'warning') {
+        continue;
       }
-      for (final id in [e.a, e.b]) {
-        final c = towns[id]?.colony, incident = c?.incident;
-        if (c == null ||
-            incident == null ||
-            incident.state == 'retreating' ||
-            incident.state == 'warning') {
-          continue;
-        }
-        if (incident.kind == IncidentKind.raiders &&
-                incident.state == 'grazing' ||
-            incident.kind == IncidentKind.flood && market(towns[id]!) == null) {
-          closed.add(e.id);
-        }
+      if (incident.kind == IncidentKind.raiders &&
+          incident.state == 'grazing') {
+        return 'Brigands interrupt ${town.name}’s Market approach. A trained Watchpost guard must reach them, or wait for retreat.';
+      }
+      if (incident.kind == IncidentKind.flood && market(town) == null) {
+        return 'Storm surge cut ${town.name}’s Market connection. Restore Stone/bridge approaches or wait for recession.';
       }
     }
-    return closed;
+    return null;
   }
+
+  Set<String> get closedConnections => {
+    for (final edge in geography.connections)
+      if (connectionReason(edge) != null) edge.id,
+  };
 
   double edgeWeather(RegionalConnection edge) =>
       math.max(weatherAt(edge.a).travel, weatherAt(edge.b).travel);
@@ -315,8 +323,9 @@ extension RegionalCommerce on SettlementRegion {
         visit.progress < 2 - 1e-9 ||
         visit.actor.moving ||
         owner.colony.placeAccess(visit.venue) != visit.actor.cell ||
-        !owner.colony.staffed(visit.venue))
+        !owner.colony.staffed(visit.venue)) {
       return;
+    }
     if (exporting && s.state == ShipmentState.loading) {
       s.collected = true;
       s.reason = 'Collected · walking to the departure road';
@@ -465,6 +474,7 @@ extension RegionalCommerce on SettlementRegion {
         return;
       }
       if (town.colony.startFreight(s.id, venue, exporting: false) != null) {
+        if (!s.returning) s.destinationMarket = venue;
         s.state = ShipmentState.unloading;
         s.reason = 'Arrived at the entry road · walking to the Market';
         s.blockedSince = -1;
@@ -487,7 +497,11 @@ extension RegionalCommerce on SettlementRegion {
         }
       }
       if (closed.contains(edge.id)) {
-        _blocked(s, 'Pass or connection interrupted · waiting safely');
+        _blocked(
+          s,
+          connectionReason(edge) ??
+              'Waiting for the regional connection to reopen',
+        );
         return;
       }
     }
@@ -507,11 +521,7 @@ extension RegionalCommerce on SettlementRegion {
     final closed = closedConnections;
     for (final id in closed.difference(observedClosures)) {
       final edge = geography.connections.firstWhere((e) => e.id == id);
-      remember(
-        'regional-interruption',
-        edge.a,
-        '${edge.terrain == 'pass' ? 'An exposed pass' : 'A travel connection'} is interrupted by actual weather or an ongoing incident. Caravans wait or use an open alternate at a reached site.',
-      );
+      remember('regional-interruption', edge.a, connectionReason(edge)!);
     }
     for (final id in observedClosures.difference(closed)) {
       final edge = geography.connections.firstWhere((e) => e.id == id);
@@ -681,6 +691,10 @@ extension RegionalCommerce on SettlementRegion {
           d['returning'] is! bool ||
           d['path'] is! List ||
           d['path'].length > 32 ||
+          (d['path'] as List).any(
+            (id) =>
+                id is! String || !geography.connections.any((e) => e.id == id),
+          ) ||
           !discovered.contains(d['node'])) {
         bad();
       }
@@ -724,7 +738,19 @@ extension RegionalCommerce on SettlementRegion {
         ..departed = number(d['departed'], -1, clock);
       if (s.terminal != (s.finished >= 0) ||
           !s.terminal && !inFlight.add(s.route) ||
-          s.state == ShipmentState.loading && s.departed >= 0) {
+          s.state == ShipmentState.loading && s.departed >= 0 ||
+          s.departed >= 0 && s.departed < s.created ||
+          s.finished >= 0 && s.finished < s.created ||
+          [
+                ShipmentState.transit,
+                ShipmentState.unloading,
+                ShipmentState.delivered,
+                ShipmentState.returned,
+              ].contains(s.state) &&
+              !s.collected ||
+          s.state == ShipmentState.delivered &&
+              (s.departed < 0 || s.returning) ||
+          s.state == ShipmentState.returned && !s.returning) {
         bad();
       }
       for (final id in s.path) {

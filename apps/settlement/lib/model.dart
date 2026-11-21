@@ -730,14 +730,21 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
 
 int nearbyTimber(Landscape world, Cell cell) {
   var count = 0;
-  for (var dy = -3; dy <= 3; dy++) {
-    for (var dx = -3; dx <= 3; dx++) {
-      if (dx.abs() + dy.abs() > 3) continue;
-      final at = Cell(cell.x + dx, cell.y + dy);
-      if (world.contains(at) &&
-          (world.at(at).terrain == Terrain.forest ||
-              world.at(at).scenery == Scenery.oak))
-        count++;
+  final queue = <(Cell, int)>[(cell, 0)], seen = <Cell>{cell};
+  for (var i = 0; i < queue.length; i++) {
+    final (current, depth) = queue[i];
+    if (depth >= 3) continue;
+    for (final at in current.neighbours) {
+      if (!world.contains(at) || !seen.add(at)) continue;
+      final lot = world.at(at);
+      if (lot.terrain == Terrain.rock ||
+          lot.terrain == Terrain.water && !world.roadCell(at) ||
+          lot.cottage != null ||
+          lot.place != null) {
+        continue;
+      }
+      if (lot.terrain == Terrain.forest || lot.scenery == Scenery.oak) count++;
+      queue.add((at, depth + 1));
     }
   }
   return count;

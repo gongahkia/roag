@@ -413,6 +413,7 @@ class _LandscapePageState extends State<LandscapePage> {
       history(true);
       return KeyEventResult.handled;
     }
+    if (modifier) return KeyEventResult.ignored;
     if (k == LogicalKeyboardKey.digit1 || k == LogicalKeyboardKey.keyC) {
       select(Tool.cottage);
     } else if (k == LogicalKeyboardKey.digit2 || k == LogicalKeyboardKey.keyP) {
