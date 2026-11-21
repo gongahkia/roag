@@ -11,6 +11,7 @@ import 'world_generation.dart';
 
 export 'region_geometry.dart';
 part 'regional_trade.dart';
+part 'regional_progression.dart';
 
 enum TradeGood {
   provisions('Provisions'),
@@ -123,6 +124,7 @@ class SettlementRegion {
   final Set<String> projects = {};
   final Map<String, RegionalTradeRoute> tradeRoutes = {};
   final Map<String, RegionalShipment> shipments = {};
+  final Set<String> observedClosures = {};
   int nextShipment = 1;
   double nextTradeAt = 0, nextSupplyAt = 0;
   final List<Map<String, Object?>> history = [];
@@ -195,6 +197,12 @@ class SettlementRegion {
     }
   }
 
+  void setFreeBuild(bool enabled) {
+    for (final town in towns.values) {
+      town.colony.session.unlimited = enabled;
+    }
+  }
+
   void update(double elapsed) {
     final first = capital.colony;
     first.remainder += elapsed.clamp(0.0, .05) * first.speed;
@@ -206,9 +214,7 @@ class SettlementRegion {
       _tradeTick(.05);
       if (clock + 1e-9 >= nextRegionalAt) {
         nextRegionalAt = clock + 1;
-        for (final town in towns.values) {
-          town.recognise();
-        }
+        _progress();
       }
     }
     if (first.remainder < 1e-9) first.remainder = 0;
@@ -246,6 +252,11 @@ class SettlementRegion {
         towns.length < 2) {
       return 'Found a second settlement to explore farther.';
     }
+    if (!freeBuild &&
+        !['site-01', 'site-02'].contains(id) &&
+        !tradeRoutes.values.any((route) => route.deliveries > 0)) {
+      return 'Complete an automatic delivery to reveal the farther environments.';
+    }
     if (!freeBuild && capital.colony.session.money < 2000) {
       return 'Exploration costs 2 coins from the founding town.';
     }
@@ -275,7 +286,7 @@ class SettlementRegion {
     if (!freeBuild && capital.stage == DevelopmentStage.hamlet) {
       return 'Village development opens outward expansion.';
     }
-    if (!freeBuild && active.colony.session.money < foundingCost) {
+    if (!freeBuild && capital.colony.session.money < foundingCost) {
       return 'Founding needs 60 coins: 50 move to the new town; 10 prepare the expedition.';
     }
     return null;
@@ -314,8 +325,8 @@ class SettlementRegion {
     c.nextSpecialAt = clock + 12;
     c.nextVisitorAt = clock + 18;
     if (!freeBuild) {
-      active.colony.session.money -= foundingCost;
-      active.foundingSpent += foundingCost;
+      capital.colony.session.money -= foundingCost;
+      capital.foundingSpent += foundingCost;
     }
     final town = RegionalTown(id, title, c);
     towns[id] = town;
@@ -348,6 +359,19 @@ class SettlementRegion {
     final town = towns[id];
     if (town == null) return false;
     town.name = _name(name);
+    return true;
+  }
+
+  SaveSnapshot snapshot() => SaveSnapshot(
+    towns.values.fold<int>(
+      nextFact + discovered.length,
+      (n, t) => n + t.colony.session.revision,
+    ),
+    encode(),
+  );
+  bool persist(SaveSnapshot snapshot, void Function(String) write) {
+    if (snapshot.text != encode()) return false;
+    write(snapshot.text);
     return true;
   }
 

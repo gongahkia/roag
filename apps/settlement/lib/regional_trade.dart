@@ -399,7 +399,8 @@ extension RegionalCommerce on SettlementRegion {
   void _blocked(RegionalShipment s, String reason) {
     s.reason = reason;
     if (s.blockedSince < 0) s.blockedSince = clock;
-    if (clock - s.blockedSince >= 180 &&
+    if (clock - s.blockedSince >=
+            (projects.contains('resilient') ? 240 : 180) &&
         (towns[s.origin]!.colony.incidentMode == IncidentMode.standard ||
             towns[s.destination]!.colony.incidentMode ==
                 IncidentMode.standard)) {
@@ -488,6 +489,25 @@ extension RegionalCommerce on SettlementRegion {
 
   void _tradeTick(double dt) {
     final closed = closedConnections;
+    for (final id in closed.difference(observedClosures)) {
+      final edge = geography.connections.firstWhere((e) => e.id == id);
+      remember(
+        'regional-interruption',
+        edge.a,
+        '${edge.terrain == 'pass' ? 'An exposed pass' : 'A travel connection'} is interrupted by actual weather or an ongoing incident. Caravans wait or use an open alternate at a reached site.',
+      );
+    }
+    for (final id in observedClosures.difference(closed)) {
+      final edge = geography.connections.firstWhere((e) => e.id == id);
+      remember(
+        'regional-recovery',
+        edge.a,
+        'The ${edge.terrain} connection reopened.',
+      );
+    }
+    observedClosures
+      ..clear()
+      ..addAll(closed);
     for (final s in shipments.values.toList()) {
       _shipmentTick(s, dt, closed);
     }
@@ -514,6 +534,18 @@ extension RegionalCommerce on SettlementRegion {
     if (clock + 1e-9 >= nextSupplyAt) {
       nextSupplyAt = clock + 30;
       for (final town in towns.values) {
+        if (landmarkStanding(town)) {
+          town.colony.nextVisitorAt = math.min(
+            town.colony.nextVisitorAt,
+            clock + 10,
+          );
+          for (final role in VisitorRole.values) {
+            town.colony.visitorCooldown[role] = math.min(
+              town.colony.visitorCooldown[role] ?? clock,
+              clock + 30,
+            );
+          }
+        }
         if (town.colony.people.length < 2 || market(town) == null) continue;
         if (town.supplied[TradeGood.provisions]! > 0) {
           town.supplied[TradeGood.provisions] =
@@ -545,6 +577,7 @@ extension RegionalCommerce on SettlementRegion {
     'nextShipment': nextShipment,
     'nextTradeAt': nextTradeAt,
     'nextSupplyAt': nextSupplyAt,
+    'observedClosures': observedClosures.toList(),
     'routes': tradeRoutes.values.map((r) => r.toJson()).toList(),
     'shipments': shipments.values.map((s) => s.toJson()).toList(),
   };
@@ -573,6 +606,17 @@ extension RegionalCommerce on SettlementRegion {
     if (nextShipment < 1) bad();
     nextTradeAt = number(raw['nextTradeAt']);
     nextSupplyAt = number(raw['nextSupplyAt']);
+    if (raw['observedClosures'] is! List ||
+        raw['observedClosures'].length > geography.connections.length) {
+      bad();
+    }
+    for (final id in raw['observedClosures']) {
+      if (id is! String ||
+          !geography.connections.any((e) => e.id == id) ||
+          !observedClosures.add(id)) {
+        bad();
+      }
+    }
     for (final d in raw['routes']) {
       if (d is! Map ||
           d['a'] is! String ||

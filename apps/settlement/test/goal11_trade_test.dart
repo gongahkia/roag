@@ -5,7 +5,7 @@ import 'package:roag_settlement/colony.dart';
 import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/region.dart';
 
-import '../tool/goal08_fixture.dart' show add;
+import '../tool/goal08_fixture.dart' show add, paint;
 
 SettlementRegion commerceFixture({bool connect = true}) {
   final c = Colony.decode(
@@ -25,7 +25,7 @@ SettlementRegion commerceFixture({bool connect = true}) {
   );
   second.session.world = w;
   second.reconcile(w);
-  for (var y = 12; y <= 15; y++) {
+  for (var y = 14; y >= 12; y--) {
     if (!second.world.at(Cell(1, y)).path) add(second, Tool.path, Cell(1, y));
   }
   for (var x = 2; x <= 5; x++) {
@@ -88,7 +88,7 @@ void main() {
         )
         .toList();
     for (final p in trees) {
-      add(c, Tool.clear, p);
+      expect(paint(c, Tool.clear, p), isTrue);
     }
     expect(c.workSourceAvailable(camp.key), isFalse);
     final before = town.produced[TradeGood.materials];
@@ -193,6 +193,12 @@ void main() {
     final paid = r.towns[s.origin]!.exportsEarned;
     dest.incidentMode = IncidentMode.standard;
     dest.nextIncidentAt = 1e9;
+    runUntil(
+      r,
+      () => dest.visits.values.any(
+        (v) => v.freight == s.id && v.actor.cell.x >= 2,
+      ),
+    );
     add(dest, Tool.remove, const Cell(1, 15));
     runUntil(r, () => s.state == ShipmentState.lost, limit: 200);
     expect(r.towns[s.origin]!.exportsEarned, paid);
