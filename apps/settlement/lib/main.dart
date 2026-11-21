@@ -16,6 +16,8 @@ import 'dialogue.dart';
 import 'resident_request.dart';
 import 'world_generation.dart';
 import 'world_creation.dart';
+import 'region.dart';
+import 'region_map.dart';
 
 void main() => runApp(const SettlementApp());
 
@@ -53,7 +55,8 @@ class LandscapePage extends StatefulWidget {
 }
 
 class _LandscapePageState extends State<LandscapePage> {
-  late Colony colony;
+  late SettlementRegion region;
+  Colony get colony => region.active.colony;
   LandscapeSession get session => colony.session;
   bool migrationSafe = true, needsMigrationSave = false;
   late final SettlementGame game;
@@ -80,21 +83,26 @@ class _LandscapePageState extends State<LandscapePage> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(hardwareKey);
-    colony = Colony(
-      LandscapeSession(WorldGeneration.create('202', EnvironmentPreset.plains)),
+    region = SettlementRegion.fromColony(
+      Colony(
+        LandscapeSession(
+          WorldGeneration.create('202', EnvironmentPreset.plains),
+        ),
+      ),
     );
     try {
       final saved = browser.loadLocal();
       introduction = saved.isEmpty;
       if (saved.isNotEmpty) {
-        colony = Colony.decode(saved);
-        if (jsonDecode(saved)['schema'] != 6) {
+        region = SettlementRegion.decode(saved);
+        if (jsonDecode(saved)['schema'] != SettlementRegion.schema) {
           try {
             final schema = jsonDecode(saved)['schema'] as int;
             if (schema < 3) browser.backupLegacy(saved);
             if (schema < 4) browser.backupLiving(saved);
             if (schema < 5) browser.backupIncidents(saved);
-            browser.backupStories(saved);
+            if (schema < 6) browser.backupStories(saved);
+            browser.backupRegion(saved);
             needsMigrationSave = true;
           } catch (_) {
             migrationSafe = false;
@@ -129,6 +137,7 @@ class _LandscapePageState extends State<LandscapePage> {
         if (mounted) save();
       },
     );
+    game.region = region;
     browser.watchActivity((active) {
       game.suspended = !active;
       if (!active && mounted) {
@@ -153,7 +162,11 @@ class _LandscapePageState extends State<LandscapePage> {
   bool save() {
     try {
       if (!migrationSafe) throw StateError('Original save is protected.');
-      colony.persist(colony.snapshot(), browser.saveLocal);
+      if (!region.persist(region.snapshot(), browser.saveLocal)) {
+        throw StateError(
+          'The region changed before its checkpoint could be written.',
+        );
+      }
       saveStatus = 'Saved in this browser';
       return true;
     } catch (_) {
@@ -431,6 +444,8 @@ class _LandscapePageState extends State<LandscapePage> {
               : const Duration(milliseconds: 160),
         );
       }
+    } else if (k == LogicalKeyboardKey.keyW) {
+      menu('region');
     } else if (k == LogicalKeyboardKey.keyI) {
       toggleInspection();
     } else if (k == LogicalKeyboardKey.keyM && game.movableSelection) {
@@ -480,7 +495,20 @@ class _LandscapePageState extends State<LandscapePage> {
     game.clearPreview();
     game.menuVisible = true;
     try {
-      if (action == 'incidents') {
+      if (action == 'region') {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => RegionMapDialog(
+            region: region,
+            art: game.art,
+            changed: () {
+              save();
+              setState(() {});
+            },
+            visit: visitTown,
+          ),
+        );
+      } else if (action == 'incidents') {
         await showPreparedness();
       } else if (action == 'stories') {
         await showHistory();
@@ -492,22 +520,22 @@ class _LandscapePageState extends State<LandscapePage> {
       } else if (action == 'climate') {
         await showClimate();
       } else if (action == 'export') {
-        browser.exportFile(colony.snapshot().text);
+        browser.exportFile(region.snapshot().text);
         tell('Exported a portable landscape copy.');
       } else if (action == 'import') {
         final text = await browser.importFile();
         if (text.isNotEmpty && mounted) {
-          final imported = Colony.decode(text);
+          final imported = SettlementRegion.decode(text);
           final confirmed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Replace the active settlement?'),
               content: const Text(
-                'This imported town replaces your current settlement and undo history. Export your current copy first to keep it.',
+                'This import replaces your entire current region, all its towns and undo history. Export your current copy first to keep it.',
               ),
               actions: [
                 TextButton(
-                  onPressed: () => browser.exportFile(colony.snapshot().text),
+                  onPressed: () => browser.exportFile(region.snapshot().text),
                   child: const Text('Export current copy'),
                 ),
                 TextButton(
@@ -522,7 +550,7 @@ class _LandscapePageState extends State<LandscapePage> {
             ),
           );
           if (confirmed != true || !mounted) return;
-          replaceColony(imported);
+          replaceRegion(imported);
           migrationSafe = true;
           introduction = false;
           final saved = save();
@@ -533,7 +561,16 @@ class _LandscapePageState extends State<LandscapePage> {
         final draft = await showDialog<WorldDraft>(
           context: context,
           builder: (_) => WorldCreationDialog(
-            exportCurrent: () => browser.exportFile(colony.snapshot().text),
+            available: [
+              for (final p in EnvironmentPreset.values)
+                if (p.index < EnvironmentPreset.pineUplands.index ||
+                    region.freeBuild ||
+                    region.discovered.any(
+                      (id) => region.geography.site(id).environment == p,
+                    ))
+                  p,
+            ],
+            exportCurrent: () => browser.exportFile(region.snapshot().text),
           ),
         );
         if (draft != null && mounted) {
@@ -595,7 +632,7 @@ class _LandscapePageState extends State<LandscapePage> {
           ),
         );
       } else if (action == 'unlimited') {
-        setState(() => session.unlimited = !session.unlimited);
+        setState(() => region.setFreeBuild(!region.freeBuild));
         save();
       } else if (action == 'help') {
         await showDialog<void>(
@@ -612,7 +649,7 @@ class _LandscapePageState extends State<LandscapePage> {
                 'New landscape lets you choose an environment and seed; export before replacing your town. World information shows terrain rules and a copyable seed.\n\n'
                 'Preparedness (B): Firehouse 18 coins / 2 automatic staff; Watchpost 14 / 1 guard; Refuge 10 / 8 temporary shelter spaces. Inn 16 / 1 worker, 4 social spaces. Repair damaged safe buildings for 1–5 coins. Fresh unused repairs can be undone; used work and new damage remain forward.\n\n'
                 'Incidents can be Peaceful or Standard in the menu. Legacy towns start Peaceful. New Standard towns have three days of grace. Prepare roads, staff and shelter; inhabitants respond on their own.\n\n'
-                'B: scroll to the sidebar build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
+                'W: regional map, discovery, founding, trade and projects. B: scroll to the sidebar build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
                 'I: inspect; Talk opens a short optional conversation. Move (M) relocates an inspected building for free; right-click offers the same shortcut. Escape cancels. Click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
                 'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
@@ -766,13 +803,42 @@ class _LandscapePageState extends State<LandscapePage> {
     );
   }
 
-  void replaceColony(Colony next) {
+  void replaceColony(Colony next) =>
+      replaceRegion(SettlementRegion.fromColony(next));
+
+  void replaceRegion(SettlementRegion next) {
     cancelGesture();
-    next.rebaseNavigation(colony.navigation.revision);
-    colony = next;
-    game.colony = next;
+    final revision = colony.navigation.revision;
+    for (final town in next.towns.values) {
+      town.colony.rebaseNavigation(revision);
+    }
+    region = next;
+    game.region = region;
+    game.colony = colony;
     game.resetPresentation();
     conversation = null;
+    revealHud();
+  }
+
+  void visitTown(String id) {
+    if (id == region.activeId || !region.towns.containsKey(id)) return;
+    cancelGesture();
+    final camera = game.camera.viewfinder;
+    region.active.camera = [camera.position.x, camera.position.y, camera.zoom];
+    region.visit(id);
+    game.colony = colony;
+    game.resetPresentation();
+    conversation = null;
+    final remembered = region.active.camera;
+    if (remembered == null) {
+      game.home();
+    } else {
+      camera.position.setValues(remembered[0], remembered[1]);
+      camera.zoom = remembered[2];
+    }
+    revealHud();
+    save();
+    setState(() {});
   }
 
   Future<void> showClimate() async {
@@ -804,7 +870,7 @@ class _LandscapePageState extends State<LandscapePage> {
   }
 
   void setSpeed(int speed) {
-    setState(() => colony.speed = speed);
+    setState(() => region.setSpeed(speed));
     save();
     focus.requestFocus();
   }
@@ -1132,6 +1198,36 @@ class _LandscapePageState extends State<LandscapePage> {
             children: [
               Row(
                 children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 28),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      onPressed: () => menu('region'),
+                      icon: const Icon(Icons.public, size: 16),
+                      label: Text(
+                        'Region · ${region.active.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ),
+                  Tooltip(
+                    message: 'Regional map (W)',
+                    child: Text(
+                      region.active.stage.label,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xffa4b39d),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
                   Tooltip(
                     message:
                         'Productive work: ${Rules.coins(colony.workEarned)} coins. Completed Market trade: ${Rules.coins(colony.tradeEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins.${colony.civicSpent == 0 ? '' : ' Civic support: ${Rules.coins(colony.civicSpent)} coins spent.'} No maintenance.',
@@ -1434,7 +1530,13 @@ class _LandscapePageState extends State<LandscapePage> {
                   const SizedBox(height: 6),
                   for (final group in <String, List<Tool>>{
                     'Homes': [Tool.cottage],
-                    'Work': [Tool.garden, Tool.workshop, Tool.market, Tool.inn],
+                    'Work': [
+                      Tool.garden,
+                      Tool.workshop,
+                      Tool.lumberCamp,
+                      Tool.market,
+                      Tool.inn,
+                    ],
                     'Preparedness': [
                       Tool.firehouse,
                       Tool.watchpost,

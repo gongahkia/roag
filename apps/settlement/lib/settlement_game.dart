@@ -16,9 +16,11 @@ import 'resident_presentation.dart';
 import 'special_event.dart';
 import 'build_art.dart';
 import 'climate.dart';
+import 'region.dart';
 
 class SettlementGame extends FlameGame {
   Colony colony;
+  SettlementRegion? region;
   LandscapeSession get session => colony.session;
   final void Function(Placement?) onPreview;
   final void Function()? onReady;
@@ -97,6 +99,7 @@ class SettlementGame extends FlameGame {
       'oak',
       'spruce',
       'regional-monument',
+      'merchant',
       'vegetables',
       'workshop',
       'market',
@@ -233,7 +236,11 @@ class SettlementGame extends FlameGame {
     super.update(dt);
     if (!suspended && canvasReady) {
       final watch = profile ? (Stopwatch()..start()) : null;
-      residents.update(dt);
+      if (region == null) {
+        residents.update(dt);
+      } else {
+        region!.update(dt);
+      }
       if (watch != null) {
         modelCalls++;
         if (modelMicros.length >= 2048) modelMicros.removeAt(0);
@@ -413,7 +420,14 @@ class SettlementGame extends FlameGame {
       final trade = place == Place.market
           ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.exactCoins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.exactCoins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
           : '';
-      return '${place.label} · $condition\n${preparednessInfo(id)}$work$farm$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
+      final regional = place == Place.lumberCamp
+          ? '${colony.timberCount(id)} standing woodland cells within 3 steps. Actual forestry produces Materials; without woodland or access it stops.\n'
+          : place == Place.garden
+          ? 'Real work also produces regional Provisions.\n'
+          : place == Place.workshop
+          ? 'Real work also produces regional Crafted Wares.\n'
+          : '';
+      return '${place.label} · $condition\n${preparednessInfo(id)}$work$farm$visits$trade$regional${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
     }
     if (lot.cottage != null) {
       return 'Cottage · one resident\n${conditionInfo(lot.cottageId!)}\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
@@ -688,6 +702,21 @@ class _LandscapeLayer extends Component {
           game.colony.event?.green == scene.at(c).placeId &&
           game.colony.event?.state == 'active',
     );
+    if (game.region?.active.landmark != null &&
+        game.region!.active.landmark == scene.at(c).placeId &&
+        scene.at(c).place == Place.hall) {
+      game.art['regional-monument']?.render(
+        canvas,
+        position: Vector2(c.x * 12 + 2, c.y * 12 - 4),
+        size: Vector2.all(9),
+        overridePaint: Paint()
+          ..filterQuality = FilterQuality.none
+          ..colorFilter = ColorFilter.mode(
+            const Color(0xffd6ceab).withValues(alpha: opacity),
+            BlendMode.srcIn,
+          ),
+      );
+    }
   }
 
   void drawLandscape(Canvas canvas, Landscape scene) {

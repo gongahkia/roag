@@ -19,7 +19,12 @@ class WorldDraft {
 // draft controls do not hold or modify the active colony.
 class WorldCreationDialog extends StatefulWidget {
   final VoidCallback exportCurrent;
-  const WorldCreationDialog({required this.exportCurrent, super.key});
+  final List<EnvironmentPreset>? available;
+  const WorldCreationDialog({
+    required this.exportCurrent,
+    this.available,
+    super.key,
+  });
   @override
   State<WorldCreationDialog> createState() => _WorldCreationDialogState();
 }
@@ -66,7 +71,11 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
               initialValue: preset,
               decoration: const InputDecoration(labelText: 'Environment'),
               items: [
-                for (final p in EnvironmentPreset.values)
+                for (final p
+                    in widget.available ??
+                        EnvironmentPreset.values.where(
+                          (p) => p.index < EnvironmentPreset.pineUplands.index,
+                        ))
                   DropdownMenuItem(value: p, child: Text(p.label)),
               ],
               onChanged: (p) => setState(() => preset = p!),
@@ -98,8 +107,7 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
               maxLength: 64,
               decoration: InputDecoration(
                 labelText: 'World seed',
-                helperText:
-                    'Numbers or text · same seed + environment, same land',
+                helperText: 'Numbers or text · same seed, same region and founding land',
                 errorText: error,
               ),
             ),
@@ -112,7 +120,7 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Creating replaces the active settlement and its undo history. Export a copy to return to this town. Opening or cancelling this screen keeps it.',
+              'Creating replaces the entire active region and all its towns. Export a copy to return. Opening or cancelling this screen keeps your region.',
               style: TextStyle(color: Color(0xffe1b68d)),
             ),
           ],
