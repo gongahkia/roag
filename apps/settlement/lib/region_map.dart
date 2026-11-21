@@ -603,6 +603,7 @@ class RegionalMap extends StatelessWidget {
                         ? site.environment.label
                         : 'Uncharted ${site.id}'),
                 child: Tooltip(
+                  excludeFromSemantics: true,
                   message:
                       region.towns[site.id]?.name ??
                       (region.discovered.contains(site.id)
@@ -668,6 +669,72 @@ class _RegionalPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..color = const Color(0xff233329),
     );
+    for (var y = 32.0; y < size.height; y += 32) {
+      for (var x = 16.0; x < size.width; x += 32) {
+        art['grass0']?.render(
+          canvas,
+          position: Vector2(x, y),
+          size: Vector2.all(24),
+          overridePaint: Paint()
+            ..filterQuality = FilterQuality.none
+            ..colorFilter = const ColorFilter.mode(
+              Color(0x55425a40),
+              BlendMode.srcIn,
+            ),
+        );
+      }
+    }
+    // coarse illustrations describe known sites, never their unseen concrete lots.
+    for (final site in region.geography.sites.where(
+      (s) => region.discovered.contains(s.id),
+    )) {
+      final centre = at(site, size);
+      final frame = switch (site.environment) {
+        EnvironmentPreset.pineUplands => 'spruce',
+        EnvironmentPreset.woodlands => 'oak',
+        EnvironmentPreset.river ||
+        EnvironmentPreset.wetlands ||
+        EnvironmentPreset.saltCoast => 'water',
+        EnvironmentPreset.highlands || EnvironmentPreset.frontier => 'boulder',
+        _ => 'vegetables',
+      };
+      for (var dy = -2; dy <= 2; dy++) {
+        for (var dx = -3; dx <= 3; dx++) {
+          if (dx.abs() + dy.abs() > 4 ||
+              dx == 0 && dy == 0 ||
+              variation(
+                        seedNumber(region.geography.seedText),
+                        Cell(site.x + dx, site.y + dy),
+                        7103,
+                      ) %
+                      3 ==
+                  0)
+            continue;
+          art[frame]?.render(
+            canvas,
+            position: Vector2(centre.dx + dx * 18 - 8, centre.dy + dy * 18 - 8),
+            size: Vector2.all(16),
+            overridePaint: Paint()
+              ..filterQuality = FilterQuality.none
+              ..colorFilter = ColorFilter.mode(
+                frame == 'water'
+                    ? const Color(0x8862878b)
+                    : const Color(0x886b8660),
+                BlendMode.srcIn,
+              ),
+          );
+        }
+      }
+    }
+    if (region.discovered.length < region.geography.sites.length) {
+      label(
+        canvas,
+        'Beyond the known trails',
+        Offset(size.width * .72, size.height * .38),
+        const Color(0xff5f725b),
+        size: 10,
+      );
+    }
     final closed = region.closedConnections;
     for (final edge in region.geography.connections.where(
       (e) => visible.contains(e.a) && visible.contains(e.b),

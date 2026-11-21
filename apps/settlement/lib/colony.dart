@@ -1155,6 +1155,8 @@ class Colony extends Residents {
                     special?.kind == SpecialKind.harvest &&
                     special!.active(clock),
               )
+            : kind(r.workId) == Place.lumberCamp
+            ? weather.farm * (season == Season.winter ? .90 : 1)
             : 1.0;
         r.earned += _earn(
           productive *
