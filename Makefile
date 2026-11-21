@@ -2,9 +2,15 @@
 LOVE_BIN ?= love
 LUAJIT ?= luajit
 PYTHON ?= python3
+FLUTTER_BIN ?= flutter
+SETTLEMENT_PORT ?= 0
 .PHONY: help game test gui assets assets-check catalog-test preservation package spectator card-trial card-fixed card-test card-gui boggle-trial boggle-test boggle-gui
 help:
 	@printf '%s\n' 'make game          Play the Lua/LÖVE roguelike' \
+	 'make settlement    Build and serve Settlement in your browser (Flutter 3.50.0)' \
+	 'make settlement-serve  Serve the existing Settlement release without rebuilding' \
+	 'make settlement-build  Build the Settlement browser release' \
+	 'make settlement-test   Run Settlement tests' \
 	 'make spectator     Preview biomes/floors/classes with G/J/K/L/M' \
 	 'make card-trial    Open Poker Stamina in the nonpersistent trial' \
 	 'make card-fixed    Open the Fixed Stamina comparison' \
@@ -65,3 +71,20 @@ dice-test:
 dice-presentation-test:
 	$(LUAJIT) tests/dice_presentation_tests.lua
 	$(LUAJIT) tests/dice_presentation_regressions.lua
+
+.PHONY: settlement settlement-serve settlement-build settlement-test settlement-sdk-check
+settlement: settlement-build
+settlement settlement-serve:
+	@test -f apps/settlement/build/site/settlement/index.html || { echo 'Build first: make settlement-build'; exit 1; }
+	$(PYTHON) -B apps/settlement/tool/serve.py --port "$(SETTLEMENT_PORT)" --base-path /roag/settlement/ --build-dir apps/settlement/build/site/settlement
+settlement-sdk-check:
+	@command -v "$(FLUTTER_BIN)" >/dev/null 2>&1 || { \
+	 printf '%s\n' 'Flutter was not found. Rebuilding requires Flutter 3.50.0.' \
+	 'Run an existing build: make settlement-serve' \
+	 'Or specify the SDK: make settlement FLUTTER_BIN=/absolute/path/to/flutter/bin/flutter' >&2; exit 1; }
+settlement-build: settlement-sdk-check
+	cd apps/settlement && "$(FLUTTER_BIN)" pub get --enforce-lockfile
+	cd apps/settlement && FLUTTER_BIN="$(FLUTTER_BIN)" bash tool/release.sh /roag/settlement/
+settlement-test: settlement-sdk-check
+	cd apps/settlement && "$(FLUTTER_BIN)" pub get --enforce-lockfile
+	cd apps/settlement && "$(FLUTTER_BIN)" test

@@ -10,14 +10,24 @@ From the repository root, with Flutter **3.50.0**, Dart **3.14.x**, Flame
 **1.38.2**, material_ui **1.11.0** and the committed lockfile:
 
 ```sh
-cd apps/settlement
-flutter pub get --enforce-lockfile
-bash tool/release.sh /roag/settlement/
-python3 -B tool/serve.py --port 0 --base-path /roag/settlement/ --build-dir build/site/settlement
+make settlement
 ```
 
-Open the printed local URL. Port 0 avoids interfering with an unidentified
-listener. The established production address is
+This restores the locked dependencies, builds the release and serves it on
+localhost. Open the printed URL; Ctrl+C stops the server. Port 0 chooses a free
+port, avoiding an existing listener. Use `make settlement SETTLEMENT_PORT=8765`
+for a fixed port. If Flutter is outside your PATH, pass its absolute executable
+path: `make settlement FLUTTER_BIN=/absolute/path/to/flutter/bin/flutter`.
+The launcher checks for that executable before restoring dependencies and prints
+these alternatives if it is unavailable. Flutter is not bundled in the repository.
+
+After building once, `make settlement-serve` starts the server without requiring
+Flutter or rebuilding. Run `make settlement-build` to rebuild without serving,
+and `make settlement-test` to run the Flutter tests. Builds use the existing
+release script and `/roag/settlement/` asset prefix. `make game` still launches
+the original Lua/LÖVE game and requires LÖVE; Settlement does not require LÖVE.
+
+The established production address is
 <https://gabrielongzm.com/roag/settlement/>; publication verification is recorded
 below. This uses existing GitHub Pages, not ChatGPT Sites or a new paid service.
 
