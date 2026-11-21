@@ -1,0 +1,8 @@
+PASS Developed legacy town retained; removed title, tagline and old tool strip are absent
+PASS World takes the majority and full height at 800×600, 1024×640 and 1440×900
+PASS All 18 tools selectable in the scrollable HUD; B finds catalogue without a popup; UI leaves saved state unchanged
+PASS Sidebar construction uses normal price and placement; Undo/Redo restores lots and finances without advancing time
+PASS Inspection becomes visible from the bottom of the catalogue; relocation preserves identity and money
+PASS Resident conversation uses the sidebar and closes normally
+PASS Ordinary drag painting, keyboard shortcuts, mute and camera controls remain independent of sidebar scrolling
+PASS Landscape menu export and paused reload retain the resulting settlement exactly

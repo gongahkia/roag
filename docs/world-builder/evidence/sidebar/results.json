@@ -1,0 +1,16 @@
+{
+  "url": "http://127.0.0.1:34231/roag/settlement/",
+  "input": "Playwright mouse, wheel and keyboard in the real release browser, isolated context and explicit legacy-town fixture; no gameplay callbacks or private browser storage.",
+  "checks": [
+    "Developed legacy town retained; removed title, tagline and old tool strip are absent",
+    "World takes the majority and full height at 800×600, 1024×640 and 1440×900",
+    "All 18 tools selectable in the scrollable HUD; B finds catalogue without a popup; UI leaves saved state unchanged",
+    "Sidebar construction uses normal price and placement; Undo/Redo restores lots and finances without advancing time",
+    "Inspection becomes visible from the bottom of the catalogue; relocation preserves identity and money",
+    "Resident conversation uses the sidebar and closes normally",
+    "Ordinary drag painting, keyboard shortcuts, mute and camera controls remain independent of sidebar scrolling",
+    "Landscape menu export and paused reload retain the resulting settlement exactly"
+  ],
+  "errors": [],
+  "failedAssets": []
+}

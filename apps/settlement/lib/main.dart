@@ -24,7 +24,7 @@ class SettlementApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    title: 'ROAG · A place to return',
+    title: 'ROAG Settlement',
     theme: ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xff202a25),
@@ -65,7 +65,8 @@ class _LandscapePageState extends State<LandscapePage> {
   int noticeId = 0;
   bool muted = false, space = false, menuOpen = false;
   bool introduction = false;
-  final catalogueKey = GlobalKey<PopupMenuButtonState<Tool>>();
+  final catalogueKey = GlobalKey();
+  final hudScroll = ScrollController();
   Offset? inspectionStart;
   bool inspectionDragged = false;
   Offset? last;
@@ -278,6 +279,7 @@ class _LandscapePageState extends State<LandscapePage> {
           conversation = null;
           game.dialogueOpen = false;
           game.inspect(e.localPosition);
+          revealHud();
         }
       }
       inspectionStart = null;
@@ -419,7 +421,16 @@ class _LandscapePageState extends State<LandscapePage> {
     } else if (k == LogicalKeyboardKey.digit0) {
       select(Tool.gardenPath);
     } else if (k == LogicalKeyboardKey.keyB) {
-      catalogueKey.currentState?.showButtonMenu();
+      cancelGesture();
+      final catalogue = catalogueKey.currentContext;
+      if (catalogue != null) {
+        Scrollable.ensureVisible(
+          catalogue,
+          duration: game.reducedMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
+        );
+      }
     } else if (k == LogicalKeyboardKey.keyI) {
       toggleInspection();
     } else if (k == LogicalKeyboardKey.keyM && game.movableSelection) {
@@ -601,7 +612,7 @@ class _LandscapePageState extends State<LandscapePage> {
                 'New landscape lets you choose an environment and seed; export before replacing your town. World information shows terrain rules and a copyable seed.\n\n'
                 'Preparedness (B): Firehouse 18 coins / 2 automatic staff; Watchpost 14 / 1 guard; Refuge 10 / 8 temporary shelter spaces. Inn 16 / 1 worker, 4 social spaces. Repair damaged safe buildings for 1–5 coins. Fresh unused repairs can be undone; used work and new damage remain forward.\n\n'
                 'Incidents can be Peaceful or Standard in the menu. Legacy towns start Peaceful. New Standard towns have three days of grace. Prepare roads, staff and shelter; inhabitants respond on their own.\n\n'
-                'B: grouped build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
+                'B: scroll to the sidebar build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
                 'I: inspect; Talk opens a short optional conversation. Move (M) relocates an inspected building for free; right-click offers the same shortcut. Escape cancels. Click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
                 'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
@@ -806,6 +817,7 @@ class _LandscapePageState extends State<LandscapePage> {
       conversation = null;
       game.dialogueOpen = false;
     });
+    revealHud();
     focus.requestFocus();
   }
 
@@ -822,6 +834,7 @@ class _LandscapePageState extends State<LandscapePage> {
       game.inspectMode = false;
       game.clearInspection();
     });
+    revealHud();
     focus.requestFocus();
   }
 
@@ -868,6 +881,7 @@ class _LandscapePageState extends State<LandscapePage> {
       beginMove(cell);
     } else if (action == 'inspect') {
       game.inspectBuilding(cell);
+      revealHud();
     }
     focus.requestFocus();
   }
@@ -891,6 +905,11 @@ class _LandscapePageState extends State<LandscapePage> {
       );
       game.dialogueOpen = true;
     });
+    revealHud();
+  }
+
+  void revealHud() {
+    if (hudScroll.hasClients) hudScroll.jumpTo(0);
   }
 
   void chooseDialogue(String id) {
@@ -1100,57 +1119,19 @@ class _LandscapePageState extends State<LandscapePage> {
     ),
   );
 
-  @override
-  Widget build(BuildContext context) {
-    game.reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final scene = session.view;
-    final houses = scene.cells
-        .where((c) => scene.at(c).cottage != null)
-        .toList();
-    final lost = houses.where((c) => scene.access(c) == null).length;
-    String hint = preview?.message ?? tool.purpose;
-    if (session.stroke != null) {
-      hint =
-          'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
-    }
-    if (game.movingFrom != null) {
-      hint =
-          preview?.message ??
-          'Move building · Free · choose a connected plot · Escape cancels';
-    } else if (game.inspectMode) {
-      hint = 'Click a person or place · repeat click cycles nearby people · Escape closes.';
-    }
-    if (preview != null &&
-        scene.contains(preview!.cell) &&
-        scene.at(preview!.cell).cottage != null) {
-      hint = scene.access(preview!.cell) == null
-          ? 'Cottage · No access · reconnect a path'
-          : hint;
-    }
-    return Scaffold(
-      body: Focus(
-        autofocus: true,
-        focusNode: focus,
-        onFocusChange: (focused) {
-          if (!focused) {
-            space = false;
-            cancelGesture();
-          }
-        },
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xff475441))),
-              ),
-              child: Row(
+  Widget settlementHud(String hint, int lost) => Container(
+    decoration: const BoxDecoration(
+      color: Color(0xff202a25),
+      border: Border(left: BorderSide(color: Color(0xff475441))),
+    ),
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
+          child: Column(
+            children: [
+              Row(
                 children: [
-                  const Text(
-                    'A place to return',
-                    style: TextStyle(fontSize: 18, color: Color(0xffeadfbd)),
-                  ),
-                  const Spacer(),
                   Tooltip(
                     message:
                         'Productive work: ${Rules.coins(colony.workEarned)} coins. Completed Market trade: ${Rules.coins(colony.tradeEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins.${colony.civicSpent == 0 ? '' : ' Civic support: ${Rules.coins(colony.civicSpent)} coins spent.'} No maintenance.',
@@ -1191,54 +1172,44 @@ class _LandscapePageState extends State<LandscapePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 18),
-                  Text(
-                    '${colony.people.length} people${lost > 0 ? ' · $lost cut off' : ''}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  const SizedBox(width: 18),
-                  Tooltip(
-                    message: 'Base 50 · recent work +15 · leisure +15 · gathering +10. Persistent connection −20; missed work/leisure −10 each after grace. I inspects actual causes.',
-                    child: Text(
-                      '${colony.mood} ${colony.happinessMean}',
-                      style: const TextStyle(
-                        color: Color(0xffbcd7ac),
-                        fontSize: 11,
+                  const Spacer(),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${colony.people.length} people${lost > 0 ? ' · $lost cut off' : ''}',
+                        style: const TextStyle(fontSize: 11),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 18),
-                  TextButton(
-                    onPressed: () => menu('climate'),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                    ),
-                    child: Text(
-                      'Day ${colony.day} · ${colony.phase}\n${colony.season.label} · ${colony.weather.label}${colony.speed == 16 ? ' · 16×' : ''}',
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  for (final speed in [0, 1, 2, 4])
-                    Tooltip(
-                      message: speed == 0
-                          ? 'Pause simulation'
-                          : '$speed× simulation',
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(30, 32),
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          foregroundColor: colony.speed == speed
-                              ? const Color(0xfff0dba0)
-                              : const Color(0xff809078),
-                        ),
-                        onPressed: () => setSpeed(speed),
+                      const SizedBox(height: 4),
+                      Tooltip(
+                        message: 'Base 50 · recent work +15 · leisure +15 · gathering +10. Persistent connection −20; missed work/leisure −10 each after grace. I inspects actual causes.',
                         child: Text(
-                          speed == 0 ? 'Ⅱ' : '$speed×',
-                          style: const TextStyle(fontSize: 12),
+                          '${colony.mood} ${colony.happinessMean}',
+                          style: const TextStyle(
+                            color: Color(0xffbcd7ac),
+                            fontSize: 11,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => menu('climate'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      child: Text(
+                        'Day ${colony.day} · ${colony.phase}\n${colony.season.label} · ${colony.weather.label}${colony.speed == 16 ? ' · 16×' : ''}',
+                        style: const TextStyle(fontSize: 10),
+                      ),
                     ),
+                  ),
                   IconButton(
                     tooltip: 'Inspect (I)',
                     onPressed: toggleInspection,
@@ -1331,505 +1302,493 @@ class _LandscapePageState extends State<LandscapePage> {
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: ClipRect(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: MouseRegion(
-                        onExit: (event) {
-                          // only physical boundary crossings finish a stroke;
-                          // the activity handler cancels on focus loss.
-                          if (pointer != null && !inside(event.localPosition)) {
-                            finishGesture();
-                          } else if (pointer == null) {
-                            game.clearPreview();
-                          }
-                        },
-                        onHover: (e) {
-                          if (!menuOpen) game.hover(e.localPosition);
-                        },
-                        child: Listener(
-                          onPointerDown: pointerDown,
-                          onPointerMove: pointerMove,
-                          onPointerUp: pointerUp,
-                          onPointerCancel: (_) => cancelGesture(),
-                          onPointerSignal: (e) {
-                            if (e is PointerScrollEvent && !menuOpen) {
-                              GestureBinding.instance.pointerSignalResolver
-                                  .register(e, (event) {
-                                    cameraAction(
-                                      () => game.zoom(
-                                        e.scrollDelta.dy < 0 ? 1 : -1,
-                                        e.localPosition,
-                                      ),
-                                    );
-                                  });
-                            }
-                          },
-                          child: GameWidget(
-                            game: game,
-                            autofocus: false,
-                            loadingBuilder: (_) => const Center(
-                              child: Text('Opening the landscape…'),
-                            ),
-                            errorBuilder: (_, error) => Center(
-                              child: Text(
-                                'Could not open the landscape. Reload to try again.\n$error',
-                              ),
-                            ),
-                          ),
+              Row(
+                children: [
+                  for (final speed in [0, 1, 2, 4])
+                    Tooltip(
+                      message: speed == 0
+                          ? 'Pause simulation'
+                          : '$speed× simulation',
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(30, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          foregroundColor: colony.speed == speed
+                              ? const Color(0xfff0dba0)
+                              : const Color(0xff809078),
                         ),
-                      ),
-                    ),
-                    const Positioned(
-                      left: 24,
-                      top: 18,
-                      child: IgnorePointer(
+                        onPressed: () => setSpeed(speed),
                         child: Text(
-                          'Homes, farms, parks. Listen to your neighbours.',
-                          style: TextStyle(
-                            color: Color(0xffc3c9aa),
-                            fontSize: 11,
-                          ),
+                          speed == 0 ? 'Ⅱ' : '$speed×',
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ),
-                    if (colony.visits.isNotEmpty && !introduction)
-                      Positioned(
-                        left: 24,
-                        top: colony.special?.active(colony.clock) == true
-                            ? 76
-                            : 38,
-                        right: game.inspection != null ? 332 : 24,
-                        child: Wrap(
-                          spacing: 6,
-                          children: [
-                            for (final v in colony.visits.values)
-                              TextButton(
-                                onPressed: () {
-                                  game.inspectedResident = v.id;
-                                  game.inspectedCell = null;
-                                  cameraAction(() => game.locate(v.actor.cell));
-                                  setState(() {});
-                                },
-                                child: Text(
-                                  '${v.role.label} · ${v.state}',
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                              ),
-                          ],
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Zoom out (−)',
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => cameraAction(() => game.zoom(-1)),
+                    icon: const Icon(Icons.remove, size: 17),
+                  ),
+                  IconButton(
+                    tooltip: 'Return to lane (H)',
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => cameraAction(game.home),
+                    icon: const Icon(Icons.center_focus_weak, size: 17),
+                  ),
+                  IconButton(
+                    tooltip: 'Zoom in (+)',
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => cameraAction(() => game.zoom(1)),
+                    icon: const Icon(Icons.add, size: 17),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  button(
+                    'Undo',
+                    'Undo (Ctrl/⌘ Z)',
+                    session.canUndo ? () => history(false) : null,
+                    icon: const Icon(Icons.undo, size: 17),
+                  ),
+                  button(
+                    'Redo',
+                    'Redo (Ctrl/⌘ Shift Z)',
+                    session.canRedo ? () => history(true) : null,
+                    icon: const Icon(Icons.redo, size: 17),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xff475441)),
+        Expanded(
+          child: Scrollbar(
+            controller: hudScroll,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: hudScroll,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (game.inspection != null || conversation != null) ...[
+                    inspectionPanel(),
+                    const Divider(color: Color(0xff475441)),
+                  ],
+                  Text(
+                    game.movingFrom != null
+                        ? 'Move building'
+                        : game.inspectMode
+                        ? 'Inspect'
+                        : tool.label,
+                    style: const TextStyle(
+                      color: Color(0xffead39b),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    hint,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: preview?.valid == false
+                          ? const Color(0xffdca487)
+                          : const Color(0xffb4c3a5),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Drag to build · B finds tools\nSpace + drag to pan · Scroll world to zoom',
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.5,
+                      color: Color(0xff94a28b),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Construction',
+                    key: catalogueKey,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xffeadfbd),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final group in <String, List<Tool>>{
+                    'Homes': [Tool.cottage],
+                    'Work': [Tool.garden, Tool.workshop, Tool.market, Tool.inn],
+                    'Preparedness': [
+                      Tool.firehouse,
+                      Tool.watchpost,
+                      Tool.refuge,
+                      Tool.repair,
+                    ],
+                    'Social': [Tool.green, Tool.hall],
+                    'Roads': [Tool.path, Tool.stoneRoad, Tool.gardenPath],
+                    'Landscape': [Tool.clear, Tool.plant, Tool.bridge],
+                    'Manage': [Tool.remove],
+                  }.entries) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 18, 8, 6),
+                      child: Text(
+                        group.key,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xffd8c78f),
                         ),
                       ),
-                    if (colony.incident != null)
-                      Positioned(
-                        left: 20,
-                        top: 112,
-                        child: SizedBox(
-                          width: 320,
-                          child: Card(
-                            color: const Color(0xee202a25),
-                            child: TextButton(
-                              onPressed: () {
-                                final c = colony.buildingCell(
-                                  colony.incident!.target,
-                                );
-                                if (c != null) {
-                                  game.locate(c);
-                                  game.inspectBuilding(c);
-                                }
-                                menu('incidents');
-                              },
+                    ),
+                    for (final t in group.value)
+                      Semantics(
+                        selected: tool == t,
+                        child: Material(
+                          color: tool == t
+                              ? const Color(0xff303e32)
+                              : Colors.transparent,
+                          child: ListTile(
+                            selected: tool == t,
+                            selectedTileColor: const Color(0xff303e32),
+                            selectedColor: const Color(0xffead39b),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 7,
+                            ),
+                            leading: BuildThumbnail(t, game.art),
+                            title: Text(
+                              '${t.index > 9 ? '' : '${t.index == 9 ? 0 : t.index + 1} '}${t.label} · ${session.unlimited
+                                  ? 'Free'
+                                  : t == Tool.repair
+                                  ? '1–5 coins/building'
+                                  : Rules.cost(t.name) == 0
+                                  ? 'Free'
+                                  : '${Rules.coins(Rules.cost(t.name))} coins${t == Tool.bridge ? '/water cell' : ''}'}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 5),
                               child: Text(
-                                '${colony.incident!.title} · ${colony.incident!.phaseLabel} · locate / details',
+                                t.purpose,
                                 style: const TextStyle(
-                                  color: Color(0xffe3b586),
-                                  fontSize: 11,
+                                  fontSize: 10,
+                                  height: 1.4,
+                                  color: Color(0xffb9c4ad),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
-                    if (colony.incident == null &&
-                        colony.incidentHistory.isNotEmpty &&
-                        colony.clock - colony.incidentHistory.last.ends < 12)
-                      Positioned(
-                        left: 20,
-                        top: 112,
-                        child: SizedBox(
-                          width: 320,
-                          child: Card(
-                            color: const Color(0xee202a25),
-                            child: TextButton(
-                              onPressed: () => menu('incidents'),
-                              child: Text(
-                                '${colony.incidentHistory.last.kind}: ${colony.incidentHistory.last.outcome} · ${colony.incidentHistory.last.damage} damage · inspect recovery',
-                                style: const TextStyle(
-                                  color: Color(0xffd4c795),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (introduction)
-                      Positioned(
-                        top: 36,
-                        left: 16,
-                        child: SizedBox(
-                          width: 302,
-                          child: Card(
-                            color: const Color(0xf0202a25),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'A place to begin',
-                                    style: TextStyle(color: Color(0xffead39b)),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'Drag cottages beside paths to welcome people. Add workplaces and parks; watch coins, mood and neighbours. Clear trees to expand, bridge water, and build around rock. B opens every tool.',
-                                  ),
-                                  TextButton(
-                                    onPressed: () =>
-                                        setState(() => introduction = false),
-                                    child: const Text('Start building'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (colony.special?.active(colony.clock) == true)
-                      Positioned(
-                        left: 24,
-                        top: 40,
-                        right: game.inspection != null ? 312 : 24,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Tooltip(
-                            message: colony.special!.effect,
-                            child: TextButton(
-                              onPressed: () {
-                                cancelGesture();
-                                game.clearInspection();
-                                game.inspectedEvent = true;
-                                setState(() {});
-                              },
-                              child: Text(
-                                '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · ${colony.clock - colony.special!.starts < 5 ? colony.special!.shortEffect : 'inspect'}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xffe4d29b),
-                                  backgroundColor: Color(0xdd202a25),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (game.inspection != null || conversation != null)
-                      Positioned(
-                        right: 16,
-                        top: 14,
-                        width: 300,
-                        child: inspectionPanel(),
-                      ),
-                    if (notice.isNotEmpty)
-                      Positioned(
-                        bottom: 16,
-                        left: 24,
-                        right: 180,
-                        child: IgnorePointer(
-                          child: Text(
-                            notice,
-                            style: const TextStyle(
-                              color: Color(0xfff3d9a0),
-                              fontSize: 12,
-                              backgroundColor: Color(0xee202a25),
-                            ),
+                            trailing: tool == t
+                                ? const Icon(Icons.check, size: 14)
+                                : null,
+                            onTap: () => select(t),
                           ),
                         ),
                       ),
                   ],
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 9),
-              decoration: const BoxDecoration(
-                color: Color(0xff202a25),
-                border: Border(top: BorderSide(color: Color(0xff475441))),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      for (final t in Tool.values.take(5))
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Tooltip(
-                            message: '${t.label} · ${t.purpose}',
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 9,
-                                ),
-                                foregroundColor: t == tool
-                                    ? const Color(0xfff0dba0)
-                                    : const Color(0xffafbaa3),
-                                backgroundColor: t == tool
-                                    ? const Color(0xff3b4937)
-                                    : Colors.transparent,
-                                side: BorderSide(
-                                  color: t == tool
-                                      ? const Color(0xffad9f6a)
-                                      : const Color(0xff536047),
-                                ),
-                              ),
-                              onPressed: () => select(t),
-                              child: Row(
-                                children: [
-                                  BuildThumbnail(t, game.art, size: 16),
-                                  const SizedBox(width: 6),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${t.index + 1} ${t.label}',
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                      Text(
-                                        session.unlimited ||
-                                                Rules.cost(t.name) == 0
-                                            ? 'Free'
-                                            : '${Rules.cost(t.name) ~/ 1000} coins',
-                                        style: const TextStyle(fontSize: 9),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      PopupMenuButton<Tool>(
-                        key: catalogueKey,
-                        constraints: const BoxConstraints(
-                          minWidth: 360,
-                          maxWidth: 360,
-                        ),
-                        tooltip: 'Build catalogue (B)',
-                        onOpened: () {
-                          cancelGesture();
-                          setState(() => menuOpen = true);
-                          game.menuVisible = true;
-                        },
-                        onCanceled: () {
-                          setState(() => menuOpen = false);
-                          game.menuVisible = false;
-                          focus.requestFocus();
-                        },
-                        onSelected: (t) {
-                          menuOpen = false;
-                          game.menuVisible = false;
-                          select(t);
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem<Tool>(
-                            enabled: false,
-                            height: 34,
-                            child: Text(
-                              'Buildings need an adjoining connected path.',
-                              style: TextStyle(fontSize: 10),
-                            ),
-                          ),
-                          for (final group in <String, List<Tool>>{
-                            'Homes': [Tool.cottage],
-                            'Work': [
-                              Tool.garden,
-                              Tool.workshop,
-                              Tool.market,
-                              Tool.inn,
-                            ],
-                            'Preparedness': [
-                              Tool.firehouse,
-                              Tool.watchpost,
-                              Tool.refuge,
-                              Tool.repair,
-                            ],
-                            'Social': [Tool.green, Tool.hall],
-                            'Roads': [
-                              Tool.path,
-                              Tool.stoneRoad,
-                              Tool.gardenPath,
-                            ],
-                            'Landscape': [Tool.clear, Tool.plant, Tool.bridge],
-                          }.entries) ...[
-                            PopupMenuItem<Tool>(
-                              enabled: false,
-                              height: 26,
-                              child: Text(
-                                group.key,
-                                style: const TextStyle(
-                                  color: Color(0xffd8c78f),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            for (final t in group.value)
-                              PopupMenuItem<Tool>(
-                                value: t,
-                                height: 68,
-                                child: SizedBox(
-                                  width: 330,
-                                  child: Row(
-                                    children: [
-                                      BuildThumbnail(t, game.art),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '${t.index > 9 ? '' : '${t.index == 9 ? 0 : t.index + 1} '}${t.label} · ${t == Tool.repair
-                                                  ? '1–5 coins/building'
-                                                  : Rules.cost(t.name) == 0
-                                                  ? 'Free'
-                                                  : '${Rules.coins(Rules.cost(t.name))} coins${t == Tool.bridge ? '/water cell' : ''}'}',
-                                              style: TextStyle(
-                                                color: tool == t
-                                                    ? const Color(0xffead39b)
-                                                    : null,
-                                              ),
-                                            ),
-                                            Text(
-                                              t.purpose,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: Color(0xffb9c4ad),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (tool == t)
-                                        const Icon(Icons.check, size: 14),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ],
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xff7a8760)),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.apps, size: 16),
-                              const SizedBox(width: 5),
-                              Text(
-                                tool.index >= 5
-                                    ? (tool == Tool.hall ? 'Hall' : tool.label)
-                                    : 'Build…',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Zoom out (−)',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 40,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => cameraAction(() => game.zoom(-1)),
-                        icon: const Icon(Icons.remove, size: 17),
-                      ),
-                      IconButton(
-                        tooltip: 'Return to lane (H)',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 40,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => cameraAction(game.home),
-                        icon: const Icon(Icons.center_focus_weak, size: 17),
-                      ),
-                      IconButton(
-                        tooltip: 'Zoom in (+)',
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 40,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => cameraAction(() => game.zoom(1)),
-                        icon: const Icon(Icons.add, size: 17),
-                      ),
-                      button(
-                        'Undo',
-                        'Undo (Ctrl/⌘ Z)',
-                        session.canUndo ? () => history(false) : null,
-                        icon: const Icon(Icons.undo, size: 17),
-                      ),
-                      button(
-                        'Redo',
-                        'Redo (Ctrl/⌘ Shift Z)',
-                        session.canRedo ? () => history(true) : null,
-                        icon: const Icon(Icons.redo, size: 17),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          hint,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: preview?.valid == false
-                                ? const Color(0xffdca487)
-                                : const Color(0xffb4c3a5),
-                          ),
-                        ),
-                      ),
-                      const Text(
-                        'Space + drag · pan   Scroll · zoom',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xff94a28b),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-          ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    game.reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final scene = session.view;
+    final houses = scene.cells
+        .where((c) => scene.at(c).cottage != null)
+        .toList();
+    final lost = houses.where((c) => scene.access(c) == null).length;
+    String hint = preview?.message ?? tool.purpose;
+    if (session.stroke != null) {
+      hint =
+          'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
+    }
+    if (game.movingFrom != null) {
+      hint =
+          preview?.message ??
+          'Move building · Free · choose a connected plot · Escape cancels';
+    } else if (game.inspectMode) {
+      hint = 'Click a person or place · repeat click cycles nearby people · Escape closes.';
+    }
+    if (preview != null &&
+        scene.contains(preview!.cell) &&
+        scene.at(preview!.cell).cottage != null) {
+      hint = scene.access(preview!.cell) == null
+          ? 'Cottage · No access · reconnect a path'
+          : hint;
+    }
+    return Scaffold(
+      body: Focus(
+        autofocus: true,
+        focusNode: focus,
+        onFocusChange: (focused) {
+          if (!focused) {
+            space = false;
+            cancelGesture();
+          }
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  label: 'Settlement world',
+                  child: ClipRect(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: MouseRegion(
+                            onExit: (event) {
+                              // only physical boundary crossings finish a stroke;
+                              // the activity handler cancels on focus loss.
+                              if (pointer != null &&
+                                  !inside(event.localPosition)) {
+                                finishGesture();
+                              } else if (pointer == null) {
+                                game.clearPreview();
+                              }
+                            },
+                            onHover: (e) {
+                              if (!menuOpen) game.hover(e.localPosition);
+                            },
+                            child: Listener(
+                              onPointerDown: pointerDown,
+                              onPointerMove: pointerMove,
+                              onPointerUp: pointerUp,
+                              onPointerCancel: (_) => cancelGesture(),
+                              onPointerSignal: (e) {
+                                if (e is PointerScrollEvent && !menuOpen) {
+                                  GestureBinding.instance.pointerSignalResolver
+                                      .register(e, (event) {
+                                        cameraAction(
+                                          () => game.zoom(
+                                            e.scrollDelta.dy < 0 ? 1 : -1,
+                                            e.localPosition,
+                                          ),
+                                        );
+                                      });
+                                }
+                              },
+                              child: GameWidget(
+                                game: game,
+                                autofocus: false,
+                                loadingBuilder: (_) => const Center(
+                                  child: Text('Opening the landscape…'),
+                                ),
+                                errorBuilder: (_, error) => Center(
+                                  child: Text(
+                                    'Could not open the landscape. Reload to try again.\n$error',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (colony.visits.isNotEmpty && !introduction)
+                          Positioned(
+                            left: 24,
+                            top: colony.special?.active(colony.clock) == true
+                                ? 76
+                                : 38,
+                            right: 24,
+                            child: Wrap(
+                              spacing: 6,
+                              children: [
+                                for (final v in colony.visits.values)
+                                  TextButton(
+                                    onPressed: () {
+                                      game.inspectedResident = v.id;
+                                      game.inspectedCell = null;
+                                      cameraAction(
+                                        () => game.locate(v.actor.cell),
+                                      );
+                                      setState(() {});
+                                      revealHud();
+                                    },
+                                    child: Text(
+                                      '${v.role.label} · ${v.state}',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        if (colony.incident != null)
+                          Positioned(
+                            left: 20,
+                            top: 112,
+                            child: SizedBox(
+                              width: 320,
+                              child: Card(
+                                color: const Color(0xee202a25),
+                                child: TextButton(
+                                  onPressed: () {
+                                    final c = colony.buildingCell(
+                                      colony.incident!.target,
+                                    );
+                                    if (c != null) {
+                                      game.locate(c);
+                                      game.inspectBuilding(c);
+                                    }
+                                    menu('incidents');
+                                  },
+                                  child: Text(
+                                    '${colony.incident!.title} · ${colony.incident!.phaseLabel} · locate / details',
+                                    style: const TextStyle(
+                                      color: Color(0xffe3b586),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (colony.incident == null &&
+                            colony.incidentHistory.isNotEmpty &&
+                            colony.clock - colony.incidentHistory.last.ends <
+                                12)
+                          Positioned(
+                            left: 20,
+                            top: 112,
+                            child: SizedBox(
+                              width: 320,
+                              child: Card(
+                                color: const Color(0xee202a25),
+                                child: TextButton(
+                                  onPressed: () => menu('incidents'),
+                                  child: Text(
+                                    '${colony.incidentHistory.last.kind}: ${colony.incidentHistory.last.outcome} · ${colony.incidentHistory.last.damage} damage · inspect recovery',
+                                    style: const TextStyle(
+                                      color: Color(0xffd4c795),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (introduction)
+                          Positioned(
+                            top: 36,
+                            left: 16,
+                            child: SizedBox(
+                              width: 302,
+                              child: Card(
+                                color: const Color(0xf0202a25),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'A place to begin',
+                                        style: TextStyle(
+                                          color: Color(0xffead39b),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'Drag cottages beside paths to welcome people. Add workplaces and parks; watch coins, mood and neighbours. Clear trees to expand, bridge water, and build around rock. Find every tool in the sidebar.',
+                                      ),
+                                      TextButton(
+                                        onPressed: () => setState(
+                                          () => introduction = false,
+                                        ),
+                                        child: const Text('Start building'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (colony.special?.active(colony.clock) == true)
+                          Positioned(
+                            left: 24,
+                            top: 40,
+                            right: 24,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Tooltip(
+                                message: colony.special!.effect,
+                                child: TextButton(
+                                  onPressed: () {
+                                    cancelGesture();
+                                    game.clearInspection();
+                                    game.inspectedEvent = true;
+                                    setState(() {});
+                                    revealHud();
+                                  },
+                                  child: Text(
+                                    '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · ${colony.clock - colony.special!.starts < 5 ? colony.special!.shortEffect : 'inspect'}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xffe4d29b),
+                                      backgroundColor: Color(0xdd202a25),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (notice.isNotEmpty)
+                          Positioned(
+                            bottom: 16,
+                            left: 24,
+                            right: 180,
+                            child: IgnorePointer(
+                              child: Text(
+                                notice,
+                                style: const TextStyle(
+                                  color: Color(0xfff3d9a0),
+                                  fontSize: 12,
+                                  backgroundColor: Color(0xee202a25),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Semantics(
+                container: true,
+                explicitChildNodes: true,
+                label: 'Settlement controls',
+                child: SizedBox(
+                  width: (constraints.maxWidth * .28)
+                      .clamp(300.0, 380.0)
+                      .clamp(0.0, constraints.maxWidth * .45),
+                  child: settlementHud(hint, lost),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1839,6 +1798,7 @@ class _LandscapePageState extends State<LandscapePage> {
   void dispose() {
     browser.unwatchActivity();
     HardwareKeyboard.instance.removeHandler(hardwareKey);
+    hudScroll.dispose();
     focus.dispose();
     super.dispose();
   }
