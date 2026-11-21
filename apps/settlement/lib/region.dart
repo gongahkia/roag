@@ -68,13 +68,7 @@ class RegionalTown {
         colony.places(Place.hall).any((p) => colony.placeAccess(p.key) != null),
     deliveries > 0 || colony.workEarned >= 20000,
   ];
-  bool get protected => colony.people.values.any(
-    (r) =>
-        r.dutyBuilding != null &&
-        colony.kind(r.dutyBuilding)?.protective == true &&
-        colony.clock - r.dutyAt < Rules.day &&
-        colony.placeAccess(r.dutyBuilding) != null,
-  );
+  bool get protected => colony.people.values.any(colony.ready);
   void recognise() {
     if (stage.index < DevelopmentStage.village.index &&
         villageRequirements.every((v) => v)) {

@@ -162,8 +162,8 @@ extension RegionalCommerce on SettlementRegion {
     if (tradeRoutes.containsKey('trade-${pair[0]}-${pair[1]}')) {
       return 'This trading relationship already exists.';
     }
-    if (!freeBuild && active.colony.session.money < 3000) {
-      return 'Establishing a relationship costs 3 coins.';
+    if (!freeBuild && capital.colony.session.money < 3000) {
+      return 'Establishing a relationship costs 3 coins from the founding treasury.';
     }
     return null;
   }
@@ -173,9 +173,14 @@ extension RegionalCommerce on SettlementRegion {
     final pair = [a, b]..sort(),
         id = 'trade-${pair[0]}-${pair[1]}',
         paid = freeBuild ? 0 : 3000;
-    active.colony.session.money -= paid;
-    tradeRoutes[id] = RegionalTradeRoute(id, pair[0], pair[1], activeId, paid)
-      ..nextAt = clock;
+    capital.colony.session.money -= paid;
+    tradeRoutes[id] = RegionalTradeRoute(
+      id,
+      pair[0],
+      pair[1],
+      capital.siteId,
+      paid,
+    )..nextAt = clock;
     remember(
       'trade-route',
       a,
@@ -301,6 +306,17 @@ extension RegionalCommerce on SettlementRegion {
   void _freightServed(String id, bool exporting) {
     final s = shipments[id];
     if (s == null || s.terminal) return;
+    final owner = towns[exporting ? s.origin : s.target]!;
+    final visit = owner.colony.visits.values
+        .where((v) => v.freight == id && v.exporting == exporting)
+        .firstOrNull;
+    if (visit == null ||
+        !visit.completed ||
+        visit.progress < 2 - 1e-9 ||
+        visit.actor.moving ||
+        owner.colony.placeAccess(visit.venue) != visit.actor.cell ||
+        !owner.colony.staffed(visit.venue))
+      return;
     if (exporting && s.state == ShipmentState.loading) {
       s.collected = true;
       s.reason = 'Collected · walking to the departure road';

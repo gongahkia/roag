@@ -734,7 +734,10 @@ int nearbyTimber(Landscape world, Cell cell) {
     for (var dx = -3; dx <= 3; dx++) {
       if (dx.abs() + dy.abs() > 3) continue;
       final at = Cell(cell.x + dx, cell.y + dy);
-      if (world.contains(at) && world.at(at).terrain == Terrain.forest) count++;
+      if (world.contains(at) &&
+          (world.at(at).terrain == Terrain.forest ||
+              world.at(at).scenery == Scenery.oak))
+        count++;
     }
   }
   return count;
