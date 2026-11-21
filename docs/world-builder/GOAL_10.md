@@ -376,7 +376,18 @@ original raw saved phases. [Final phase results](evidence/goal-10/browser/result
 The 17-journey recording and measurements above use the complete release before
 that wording-only change; the final two UI checks cover the changed presentation.
 The final browser helper also skips cached/redirect response bodies when hashing
-scripts. Its automatic `3564b070 work~` checkpoint is retained.
+scripts. Its automatic `3564b070 work~` checkpoint is retained and passed
+[publication 44350273041](https://github.com/gongahkia/roag/actions/runs/44350273041),
+with unchanged application bytes. [Latest deployment](evidence/goal-10/deployment-latest.json).
+
+After the explicit pause/resume, the unchanged application was revalidated on
+21 November: all **214 tests**, formatting, analysis and the asset check pass
+again. The original 599-binding asset check passes too; the broad catalogue
+suite remains 47/48 on the documented ownership assertion.
+A fresh isolated browser opened the actual public URL and repeated both
+human-encounter phase/reload journeys, loading the same final JavaScript hash.
+[Resumed tests](evidence/goal-10/tests-resumed.log),
+[resumed public checks](evidence/goal-10/browser/results-phase-resumed.json).
 
 Only the `release/settlement-goal-10` workflow branch and exact Pages deployment
 policy were added; main and releases 07–09 are retained. No reset, force push,
