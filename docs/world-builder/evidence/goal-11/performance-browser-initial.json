@@ -1,0 +1,290 @@
+{
+  "url": "http://127.0.0.1:34257/roag/settlement/?profile=1",
+  "browser": "Chromium 155 / SwiftShader, shared Linux host",
+  "sampling": "16 wall-seconds at 1×, no concurrent owned builds/browsers; internal timings are not physical input/display latency",
+  "results": [
+    {
+      "name": "single-scale-85",
+      "frameMs": {
+        "mean": 39.577037037037044,
+        "p95": 83.39999999999964,
+        "max": 233.29999999999927
+      },
+      "modelUs": {
+        "mean": 668.8172043010753,
+        "p95": 2000,
+        "max": 14700
+      },
+      "presentationUs": {
+        "mean": 354.83870967741933,
+        "p95": 600,
+        "max": 11700
+      },
+      "advanced": 14.100000000000083,
+      "activeModelUsPerFrame": 633.3333333333334,
+      "backgroundModelUsPerFrame": 0,
+      "tradeUsPerFrame": 14.193548387096774,
+      "regionalSchedulingUsPerFrame": 5.806451612903226,
+      "storage": {
+        "rawBytes": 127156,
+        "exportBytes": 160754,
+        "loadMs": 10.700000002980232,
+        "clocks": [
+          15.900000000000091
+        ]
+      },
+      "metrics": {
+        "modelCalls": 522,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 800,
+        "incidentActors": 0,
+        "routeSearches": 1340,
+        "population": 85,
+        "clock": 15.450000000000085,
+        "cacheHits": 1237,
+        "expansions": 63345,
+        "fieldsBuilt": 103,
+        "planningBacklog": 0,
+        "planned": 158,
+        "discardedPlans": 0,
+        "navigationRevision": 103,
+        "towns": 1,
+        "backgroundPopulation": 0,
+        "activeModelUs": 472400,
+        "backgroundModelUs": 0,
+        "tradeUs": 9000,
+        "regionalSchedulingUs": 3600
+      }
+    },
+    {
+      "name": "single-scale-500",
+      "frameMs": {
+        "mean": 48.85945121950992,
+        "p95": 116.60000000000036,
+        "max": 183.29999999999927
+      },
+      "modelUs": {
+        "mean": 2836.376923076923,
+        "p95": 9601,
+        "max": 20600
+      },
+      "presentationUs": {
+        "mean": 849.0333333333333,
+        "p95": 1600,
+        "max": 5199
+      },
+      "advanced": 13.450000000000074,
+      "activeModelUsPerFrame": 2798.702564102564,
+      "backgroundModelUsPerFrame": 0,
+      "tradeUsPerFrame": 17.18717948717949,
+      "regionalSchedulingUsPerFrame": 4.864102564102564,
+      "storage": {
+        "rawBytes": 387849,
+        "exportBytes": 583870,
+        "loadMs": 35.400000002235174,
+        "clocks": [
+          15.15000000000008
+        ]
+      },
+      "metrics": {
+        "modelCalls": 448,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 800,
+        "incidentActors": 0,
+        "routeSearches": 6988,
+        "population": 500,
+        "clock": 14.750000000000075,
+        "cacheHits": 6437,
+        "expansions": 338865,
+        "fieldsBuilt": 551,
+        "planningBacklog": 0,
+        "planned": 847,
+        "discardedPlans": 0,
+        "navigationRevision": 518,
+        "towns": 1,
+        "backgroundPopulation": 0,
+        "activeModelUs": 1368295,
+        "backgroundModelUs": 0,
+        "tradeUs": 8802,
+        "regionalSchedulingUs": 2696
+      }
+    },
+    {
+      "name": "three-biome-trade",
+      "frameMs": {
+        "mean": 29.950093457942533,
+        "p95": 50.10000000000218,
+        "max": 100
+      },
+      "modelUs": {
+        "mean": 311.7845117845118,
+        "p95": 901,
+        "max": 4101
+      },
+      "presentationUs": {
+        "mean": 180.11111111111111,
+        "p95": 300,
+        "max": 2099
+      },
+      "advanced": 15.300000000003479,
+      "activeModelUsPerFrame": 175.76936026936028,
+      "backgroundModelUsPerFrame": 96.96464646464646,
+      "tradeUsPerFrame": 24.574074074074073,
+      "regionalSchedulingUsPerFrame": 2.8602693602693603,
+      "storage": {
+        "rawBytes": 236069,
+        "exportBytes": 246729,
+        "loadMs": 10.199999999254942,
+        "clocks": [
+          184.9000000000078,
+          184.9000000000078,
+          184.9000000000078
+        ]
+      },
+      "metrics": {
+        "modelCalls": 687,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 500,
+        "incidentActors": 0,
+        "routeSearches": 210,
+        "population": 12,
+        "clock": 184.35000000000767,
+        "cacheHits": 197,
+        "expansions": 221,
+        "fieldsBuilt": 13,
+        "planningBacklog": 0,
+        "planned": 29,
+        "discardedPlans": 0,
+        "navigationRevision": 30,
+        "towns": 3,
+        "backgroundPopulation": 8,
+        "activeModelUs": 129699,
+        "backgroundModelUs": 71498,
+        "tradeUs": 16502,
+        "regionalSchedulingUs": 2498
+      }
+    },
+    {
+      "name": "region-scale-85",
+      "frameMs": {
+        "mean": 34.57149028077593,
+        "p95": 83.29999999999927,
+        "max": 133.39999999999964
+      },
+      "modelUs": {
+        "mean": 1630.2586206896551,
+        "p95": 4500,
+        "max": 13299
+      },
+      "presentationUs": {
+        "mean": 348.6551724137931,
+        "p95": 599,
+        "max": 8000
+      },
+      "advanced": 14.54999999999918,
+      "activeModelUsPerFrame": 451.1647509578544,
+      "backgroundModelUsPerFrame": 1130.8218390804598,
+      "tradeUsPerFrame": 32.58429118773947,
+      "regionalSchedulingUsPerFrame": 2.293103448275862,
+      "storage": {
+        "rawBytes": 478881,
+        "exportBytes": 621199,
+        "loadMs": 20.199999999254942,
+        "clocks": [
+          66.24999999999838,
+          66.24999999999838,
+          66.24999999999838,
+          66.24999999999838
+        ]
+      },
+      "metrics": {
+        "modelCalls": 579,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 701,
+        "incidentActors": 0,
+        "routeSearches": 1084,
+        "population": 85,
+        "clock": 65.7999999999984,
+        "cacheHits": 1045,
+        "expansions": 23985,
+        "fieldsBuilt": 39,
+        "planningBacklog": 0,
+        "planned": 75,
+        "discardedPlans": 0,
+        "navigationRevision": 103,
+        "towns": 4,
+        "backgroundPopulation": 255,
+        "activeModelUs": 302907,
+        "backgroundModelUs": 758588,
+        "tradeUs": 22217,
+        "regionalSchedulingUs": 2794
+      }
+    },
+    {
+      "name": "region-scale-500",
+      "frameMs": {
+        "mean": 46.33930635838365,
+        "p95": 83.39999999999964,
+        "max": 216.6999999999989
+      },
+      "modelUs": {
+        "mean": 3497.4812967581047,
+        "p95": 8500,
+        "max": 12700
+      },
+      "presentationUs": {
+        "mean": 1317.7556109725685,
+        "p95": 2101,
+        "max": 4901
+      },
+      "advanced": 13.649999999999231,
+      "activeModelUsPerFrame": 2227.1571072319202,
+      "backgroundModelUsPerFrame": 1204.493765586035,
+      "tradeUsPerFrame": 40.8927680798005,
+      "regionalSchedulingUsPerFrame": 3.7406483790523692,
+      "storage": {
+        "rawBytes": 745904,
+        "exportBytes": 1054194,
+        "loadMs": 51.80000000074506,
+        "clocks": [
+          65.54999999999842,
+          65.54999999999842,
+          65.54999999999842,
+          65.54999999999842
+        ]
+      },
+      "metrics": {
+        "modelCalls": 461,
+        "hazardTicks": 0,
+        "fireSitesVisited": 0,
+        "hazardUsLast": 0,
+        "hazardUsMax": 701,
+        "incidentActors": 0,
+        "routeSearches": 8041,
+        "population": 500,
+        "clock": 65.04999999999845,
+        "cacheHits": 7826,
+        "expansions": 132225,
+        "fieldsBuilt": 215,
+        "planningBacklog": 0,
+        "planned": 481,
+        "discardedPlans": 0,
+        "navigationRevision": 518,
+        "towns": 4,
+        "backgroundPopulation": 255,
+        "activeModelUs": 1073089,
+        "backgroundModelUs": 592200,
+        "tradeUs": 20698,
+        "regionalSchedulingUs": 2500
+      }
+    }
+  ]
+}

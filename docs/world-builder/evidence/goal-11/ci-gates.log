@@ -1,0 +1,898 @@
+web	Set up job	﻿2026-11-21T15:18:40.0921004Z Current runner version: '2.338.2'
+web	Set up job	2026-11-21T15:18:40.0946665Z ##[group]Runner Image Provisioner
+web	Set up job	2026-11-21T15:18:40.0947537Z Hosted Compute Agent
+web	Set up job	2026-11-21T15:18:40.0948271Z Version: 20261111.635
+web	Set up job	2026-11-21T15:18:40.0948930Z Commit: b8a594ea514ff44cadb5342986c68b1eac6e22ed
+web	Set up job	2026-11-21T15:18:40.0949688Z Build Date: 2026-11-11T01:49:01Z
+web	Set up job	2026-11-21T15:18:40.0950444Z Worker ID: {d903437d-8459-4865-ade9-f862f8417ea2}
+web	Set up job	2026-11-21T15:18:40.0951158Z Region: westus
+web	Set up job	2026-11-21T15:18:40.0951925Z Cloud: Azure
+web	Set up job	2026-11-21T15:18:40.0952534Z ##[endgroup]
+web	Set up job	2026-11-21T15:18:40.0954327Z ##[group]Operating System
+web	Set up job	2026-11-21T15:18:40.0955076Z Ubuntu
+web	Set up job	2026-11-21T15:18:40.0955616Z 26.04.1
+web	Set up job	2026-11-21T15:18:40.0956110Z LTS
+web	Set up job	2026-11-21T15:18:40.0956694Z ##[endgroup]
+web	Set up job	2026-11-21T15:18:40.0957280Z ##[group]Runner Image
+web	Set up job	2026-11-21T15:18:40.0958238Z Image: ubuntu-26.04
+web	Set up job	2026-11-21T15:18:40.0958854Z Version: 20261116.202.1
+web	Set up job	2026-11-21T15:18:40.0959902Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261116.202/images/ubuntu/Ubuntu2604-Readme.md
+web	Set up job	2026-11-21T15:18:40.0961887Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261116.202
+web	Set up job	2026-11-21T15:18:40.0962898Z ##[endgroup]
+web	Set up job	2026-11-21T15:18:40.0964019Z ##[group]GITHUB_TOKEN Permissions
+web	Set up job	2026-11-21T15:18:40.0966143Z Contents: read
+web	Set up job	2026-11-21T15:18:40.0966831Z Metadata: read
+web	Set up job	2026-11-21T15:18:40.0967381Z ##[endgroup]
+web	Set up job	2026-11-21T15:18:40.0969472Z Secret source: Actions
+web	Set up job	2026-11-21T15:18:40.0970461Z Cache mode: write
+web	Set up job	2026-11-21T15:18:40.0971804Z Prepare workflow directory
+web	Set up job	2026-11-21T15:18:40.1439508Z Prepare all required actions
+web	Set up job	2026-11-21T15:18:40.1488770Z Getting action download info
+web	Set up job	2026-11-21T15:18:40.5455317Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+web	Set up job	2026-11-21T15:18:40.6601716Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+web	Set up job	2026-11-21T15:18:40.9322490Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+web	Set up job	2026-11-21T15:18:41.0195129Z Download action repository 'actions/upload-pages-artifact@v4' (SHA:7b1f4a764d45c48632c6b24a0339c27f5614fb0b)
+web	Set up job	2026-11-21T15:18:41.3332867Z Getting action download info
+web	Set up job	2026-11-21T15:18:41.4759990Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+web	Set up job	2026-11-21T15:18:41.6875239Z Getting action download info
+web	Set up job	2026-11-21T15:18:41.8364013Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+web	Set up job	2026-11-21T15:18:41.9527150Z Complete job name: web
+web	Run actions/checkout@v6	﻿2026-11-21T15:18:42.0775664Z ##[group]Run actions/checkout@v6
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0777029Z with:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0777836Z   repository: gongahkia/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0787912Z   token: ***
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0788720Z   ssh-strict: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0789544Z   ssh-user: git
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0790378Z   persist-credentials: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0791421Z   clean: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0792299Z   sparse-checkout-cone-mode: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0793286Z   fetch-depth: 1
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0794093Z   fetch-tags: false
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0794926Z   show-progress: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0795773Z   lfs: false
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0796564Z   submodules: false
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0797413Z   set-safe-directory: true
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0798382Z   allow-unsafe-pr-checkout: false
+web	Run actions/checkout@v6	2026-11-21T15:18:42.0799625Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4006949Z Syncing repository: gongahkia/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4010830Z ##[group]Getting Git version info
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4013154Z Working directory is '/home/runner/work/roag/roag'
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4016528Z [command]/usr/bin/git version
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4022930Z git version 2.56.1
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4056440Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4064405Z Temporarily overriding HOME='/home/runner/work/_temp/5c369161-3e20-4049-aef8-03bbb40f46cf' before making global git config changes
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4069453Z Adding repository directory to the temporary git global config as a safe directory
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4073658Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/roag/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4165347Z Deleting the contents of '/home/runner/work/roag/roag'
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4169795Z ##[group]Determining repository object format
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4172760Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4175084Z ##[group]Initializing the repository
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4177074Z [command]/usr/bin/git init /home/runner/work/roag/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4298570Z hint: Using 'master' as the name for the initial branch. This default branch name
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4301535Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4303579Z hint: to use in all of your new repositories, which will suppress this warning,
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4305127Z hint: call:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4306089Z hint:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4307069Z hint: 	git config --global init.defaultBranch <name>
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4308646Z hint:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4310522Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4313566Z hint: 'development'. The just-created branch can be renamed via this command:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4315756Z hint:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4316934Z hint: 	git branch -m <name>
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4317995Z hint:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4319636Z hint: Disable this message with "git config set advice.defaultBranchName false"
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4322165Z Initialized empty Git repository in /home/runner/work/roag/roag/.git/
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4327503Z [command]/usr/bin/git remote add origin https://github.com/gongahkia/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4389472Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4392394Z ##[group]Disabling automatic garbage collection
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4394599Z [command]/usr/bin/git config --local gc.auto 0
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4430270Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4432415Z ##[group]Setting up auth
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4433464Z Removing SSH command configuration
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4439261Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+web	Run actions/checkout@v6	2026-11-21T15:18:42.4478329Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5051040Z Removing HTTP extra header
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5059582Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5097748Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5364958Z Removing includeIf entries pointing to credentials config files
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5370585Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5406880Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5683359Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5724600Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/roag/roag/.git.path /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5757815Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/roag/roag/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5818452Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5852074Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5888411Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5889824Z ##[group]Fetching the repository
+web	Run actions/checkout@v6	2026-11-21T15:18:42.5897828Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +bb77ab99c969692fc429df32e20fd647508a5f2a:refs/remotes/origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.1993303Z From https://github.com/gongahkia/roag
+web	Run actions/checkout@v6	2026-11-21T15:18:49.1995558Z  * [new ref]         bb77ab99c969692fc429df32e20fd647508a5f2a -> origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2006586Z [command]/usr/bin/git branch --list --remote origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2033312Z   origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2042410Z [command]/usr/bin/git rev-parse refs/remotes/origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2065009Z bb77ab99c969692fc429df32e20fd647508a5f2a
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2070206Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2070907Z ##[group]Determining the checkout info
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2071875Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2076376Z [command]/usr/bin/git sparse-checkout disable
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2129357Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2157586Z ##[group]Checking out the ref
+web	Run actions/checkout@v6	2026-11-21T15:18:49.2162025Z [command]/usr/bin/git checkout --progress --force -B release/settlement-goal-11 refs/remotes/origin/release/settlement-goal-11
+web	Run actions/checkout@v6	2026-11-21T15:18:49.6763839Z Switched to a new branch 'release/settlement-goal-11'
+web	Run actions/checkout@v6	2026-11-21T15:18:49.6769564Z branch 'release/settlement-goal-11' set up to track 'origin/release/settlement-goal-11'.
+web	Run actions/checkout@v6	2026-11-21T15:18:49.6810240Z ##[endgroup]
+web	Run actions/checkout@v6	2026-11-21T15:18:49.6892133Z [command]/usr/bin/git log -1 --format=%H
+web	Run actions/checkout@v6	2026-11-21T15:18:49.6904127Z bb77ab99c969692fc429df32e20fd647508a5f2a
+web	Run subosito/flutter-action@v2	﻿2026-11-21T15:18:49.7295778Z ##[group]Run subosito/flutter-action@v2
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7296132Z with:
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7296347Z   flutter-version: 3.50.0
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7296623Z   channel: stable
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7296833Z   cache: true
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7297037Z   architecture: X64
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7297259Z   pub-cache-path: default
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7297501Z   dry-run: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7297792Z   git-source: https://github.com/flutter/flutter.git
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7298119Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7360989Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7383954Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7386224Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7424566Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7425002Z ^[[36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7462202Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7462608Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7583708Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=19]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7586161Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7626218Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7626617Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh -p \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7626916Z ^[[36;1m  -n '3.50.0' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7627145Z ^[[36;1m  -f '' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7627353Z ^[[36;1m  -a 'X64' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7627571Z ^[[36;1m  -k '' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7627773Z ^[[36;1m  -c '' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7627969Z ^[[36;1m  -l '' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7628179Z ^[[36;1m  -d 'default' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7628519Z ^[[36;1m  -g 'https://github.com/flutter/flutter.git' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7628847Z ^[[36;1m  stable^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7658507Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.7659045Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9214478Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=162]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9219166Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9304927Z ##[group]Run actions/cache@v5
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9305188Z with:
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9305453Z   path: /opt/hostedtoolcache/flutter/stable-3.50.0-x64
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9305934Z   key: flutter-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9306384Z   enableCrossOsArchive: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9306657Z   fail-on-cache-miss: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9306897Z   lookup-only: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9307125Z   save-always: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:49.9307336Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:50.3220419Z Cache hit for: flutter-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:51.6067536Z Received 4194304 of 1675136566 (0.3%), 4.0 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:52.6072466Z Received 134217728 of 1675136566 (8.0%), 64.0 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:53.6086007Z Received 268435456 of 1675136566 (16.0%), 85.3 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:54.6097499Z Received 406847488 of 1675136566 (24.3%), 96.9 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:55.6162412Z Received 528482304 of 1675136566 (31.5%), 100.7 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:56.6101923Z Received 532676608 of 1675136566 (31.8%), 84.6 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:57.6140614Z Received 662700032 of 1675136566 (39.6%), 90.2 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:58.6139720Z Received 805306368 of 1675136566 (48.1%), 95.9 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:18:59.6148389Z Received 939524096 of 1675136566 (56.1%), 99.5 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:00.6212394Z Received 1124073472 of 1675136566 (67.1%), 107.1 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:01.6194514Z Received 1237319680 of 1675136566 (73.9%), 107.2 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:02.6222331Z Received 1396703232 of 1675136566 (83.4%), 110.9 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:03.6242358Z Received 1509949440 of 1675136566 (90.1%), 110.7 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:04.6207000Z Received 1598029824 of 1675136566 (95.4%), 108.7 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:05.6212681Z Received 1670942262 of 1675136566 (99.7%), 106.1 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:05.7226447Z Received 1675136566 of 1675136566 (100.0%), 105.7 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:05.7229472Z Cache Size: ~1598 MB (1675136566 B)
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:05.7339672Z [command]/usr/bin/tar -xf /home/runner/work/_temp/66746169-c36b-450a-bbce-47ea16588a18/cache.tzst -P -C /home/runner/work/roag/roag --use-compress-program unzstd
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:10.5977772Z Cache restored successfully
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:11.6766152Z Cache restored from key: flutter-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:11.6933518Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=success;conclusion=success;duration_ms=21771]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:11.6936134Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0314006Z ##[group]Run actions/cache@v5
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0314287Z with:
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0314498Z   path: /home/runner/.pub-cache
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0315239Z   key: flutter-pub-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb-4470259cb6b307a1b69c686b50b7da3b386da665c09a715e742aaeccd67e17e2
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0316017Z   enableCrossOsArchive: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0316278Z   fail-on-cache-miss: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0316520Z   lookup-only: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0316742Z   save-always: false
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.0316963Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:12.4078852Z Cache hit for: flutter-pub-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb-4470259cb6b307a1b69c686b50b7da3b386da665c09a715e742aaeccd67e17e2
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:13.6992448Z Received 29360128 of 40647312 (72.2%), 28.0 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:13.8180043Z Received 40647312 of 40647312 (100.0%), 34.6 MBs/sec
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:13.8180788Z Cache Size: ~39 MB (40647312 B)
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:13.8206811Z [command]/usr/bin/tar -xf /home/runner/work/_temp/d7cb5258-ab49-4ba8-a034-1ff57a2dbd78/cache.tzst -P -C /home/runner/work/roag/roag --use-compress-program unzstd
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6216864Z Cache restored successfully
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6313712Z Cache restored from key: flutter-pub-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb-4470259cb6b307a1b69c686b50b7da3b386da665c09a715e742aaeccd67e17e2
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6432127Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=success;conclusion=success;duration_ms=2949]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6434646Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6475126Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6475506Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6475800Z ^[[36;1m  -n '3.50.0' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6476047Z ^[[36;1m  -a 'x64' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6476371Z ^[[36;1m  -c '/opt/hostedtoolcache/flutter/stable-3.50.0-x64' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6476782Z ^[[36;1m  -d '/home/runner/.pub-cache' \^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6477086Z ^[[36;1m  stable^[[0m
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6508910Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.6509285Z ##[endgroup]
+web	Run subosito/flutter-action@v2	2026-11-21T15:19:14.7858002Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=142]
+web	Run flutter pub get --enforce-lockfile	﻿2026-11-21T15:19:14.7908133Z ##[group]Run flutter pub get --enforce-lockfile
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7908547Z ^[[36;1mflutter pub get --enforce-lockfile^[[0m
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7942583Z shell: /usr/bin/bash -e {0}
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7942867Z env:
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7943186Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7943602Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.7943885Z ##[endgroup]
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:14.9774171Z Resolving dependencies...
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2391819Z Downloading packages...
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2410059Z   cupertino_ui 1.1.6 (1.1.7 available)
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2410556Z   material_color_utilities 0.13.0 (0.13.1 available)
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2411095Z   material_ui 1.11.0 (1.11.1 available)
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2411776Z   test_api 0.7.14 (0.7.15 available)
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2412299Z Got dependencies!
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2413081Z 4 packages have newer versions incompatible with dependency constraints.
+web	Run flutter pub get --enforce-lockfile	2026-11-21T15:19:15.2413943Z Try `flutter pub outdated` for more information.
+web	Run python3 -B tool/assets.py --check	﻿2026-11-21T15:19:15.4020053Z ##[group]Run python3 -B tool/assets.py --check
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4020486Z ^[[36;1mpython3 -B tool/assets.py --check^[[0m
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4053238Z shell: /usr/bin/bash -e {0}
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4053517Z env:
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4053840Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4054264Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:15.4054544Z ##[endgroup]
+web	Run python3 -B tool/assets.py --check	2026-11-21T15:19:16.5427883Z Verified 49 source crops and 9 actor bodies × 4 palettes, manifest and unmodified font.
+web	Run dart format --output=none --set-exit-if-changed lib test	﻿2026-11-21T15:19:16.5525969Z ##[group]Run dart format --output=none --set-exit-if-changed lib test
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5526576Z ^[[36;1mdart format --output=none --set-exit-if-changed lib test^[[0m
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5559308Z shell: /usr/bin/bash -e {0}
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5559587Z env:
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5559908Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5560331Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:16.5560617Z ##[endgroup]
+web	Run dart format --output=none --set-exit-if-changed lib test	2026-11-21T15:19:17.1593226Z Formatted 52 files (0 changed) in 0.58 seconds.
+web	Run flutter analyze	﻿2026-11-21T15:19:17.1715379Z ##[group]Run flutter analyze
+web	Run flutter analyze	2026-11-21T15:19:17.1715713Z ^[[36;1mflutter analyze^[[0m
+web	Run flutter analyze	2026-11-21T15:19:17.1747703Z shell: /usr/bin/bash -e {0}
+web	Run flutter analyze	2026-11-21T15:19:17.1747976Z env:
+web	Run flutter analyze	2026-11-21T15:19:17.1748307Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run flutter analyze	2026-11-21T15:19:17.1748725Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run flutter analyze	2026-11-21T15:19:17.1749008Z ##[endgroup]
+web	Run flutter analyze	2026-11-21T15:19:17.5993388Z Resolving dependencies...
+web	Run flutter analyze	2026-11-21T15:19:17.8483570Z Downloading packages...
+web	Run flutter analyze	2026-11-21T15:19:17.8502286Z   cupertino_ui 1.1.6 (1.1.7 available)
+web	Run flutter analyze	2026-11-21T15:19:17.8502927Z   material_color_utilities 0.13.0 (0.13.1 available)
+web	Run flutter analyze	2026-11-21T15:19:17.8503297Z   material_ui 1.11.0 (1.11.1 available)
+web	Run flutter analyze	2026-11-21T15:19:17.8503621Z   test_api 0.7.14 (0.7.15 available)
+web	Run flutter analyze	2026-11-21T15:19:17.8504009Z Got dependencies!
+web	Run flutter analyze	2026-11-21T15:19:17.8504525Z 4 packages have newer versions incompatible with dependency constraints.
+web	Run flutter analyze	2026-11-21T15:19:17.8505016Z Try `flutter pub outdated` for more information.
+web	Run flutter analyze	2026-11-21T15:19:28.2143135Z Analyzing settlement...                                         
+web	Run flutter analyze	2026-11-21T15:19:28.2173272Z No issues found! (ran in 9.8s)
+web	Run flutter test	﻿2026-11-21T15:19:28.2311891Z ##[group]Run flutter test
+web	Run flutter test	2026-11-21T15:19:28.2312239Z ^[[36;1mflutter test^[[0m
+web	Run flutter test	2026-11-21T15:19:28.2344147Z shell: /usr/bin/bash -e {0}
+web	Run flutter test	2026-11-21T15:19:28.2344423Z env:
+web	Run flutter test	2026-11-21T15:19:28.2344745Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run flutter test	2026-11-21T15:19:28.2345161Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run flutter test	2026-11-21T15:19:28.2345442Z ##[endgroup]
+web	Run flutter test	2026-11-21T15:19:28.4557922Z Resolving dependencies...
+web	Run flutter test	2026-11-21T15:19:28.6185246Z Downloading packages...
+web	Run flutter test	2026-11-21T15:19:28.6200681Z   cupertino_ui 1.1.6 (1.1.7 available)
+web	Run flutter test	2026-11-21T15:19:28.6201581Z   material_color_utilities 0.13.0 (0.13.1 available)
+web	Run flutter test	2026-11-21T15:19:28.6202104Z   material_ui 1.11.0 (1.11.1 available)
+web	Run flutter test	2026-11-21T15:19:28.6202512Z   test_api 0.7.14 (0.7.15 available)
+web	Run flutter test	2026-11-21T15:19:28.6202985Z Got dependencies!
+web	Run flutter test	2026-11-21T15:19:28.6203622Z 4 packages have newer versions incompatible with dependency constraints.
+web	Run flutter test	2026-11-21T15:19:28.6204272Z Try `flutter pub outdated` for more information.
+web	Run flutter test	2026-11-21T15:19:29.4537170Z 
+web	Run flutter test	2026-11-21T15:19:42.8785364Z ##[group]✅ Passing tests
+web	Run flutter test	2026-11-21T15:19:42.8786775Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: seed semantics are stable for signed decimals, text and UTF-8
+web	Run flutter test	2026-11-21T15:19:42.9185287Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: multi-building repair captures prior use, exact cost, cancellation and one history step
+web	Run flutter test	2026-11-21T15:19:42.9233148Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: repair is one paid stroke, restores the same identity, and fresh undo/redo is exact
+web	Run flutter test	2026-11-21T15:19:42.9282934Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: healthy, unsafe and unaffordable repairs do nothing
+web	Run flutter test	2026-11-21T15:19:42.9302375Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: damage during a staged repair rejects the whole transaction without fees
+web	Run flutter test	2026-11-21T15:19:42.9340326Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: later damage or productive use consumes repair cost; history never refunds a used repair
+web	Run flutter test	2026-11-21T15:19:42.9392876Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_repair_test.dart: layout undo restores the damaged identity without rewinding damage
+web	Run flutter test	2026-11-21T15:19:43.7980251Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: seeded ground, variants and guaranteed clear lane are reproducible
+web	Run flutter test	2026-11-21T15:19:43.8212200Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: preview is pure; commit consumes exactly its evaluated world
+web	Run flutter test	2026-11-21T15:19:43.8261819Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: cardinal junctions include chosen access without conducting through cottage
+web	Run flutter test	2026-11-21T15:19:43.8301153Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: access preference is deterministic when several paths adjoin
+web	Run flutter test	2026-11-21T15:19:43.8378068Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: demolition leaves nonfunctional traces and reconnects quietly
+web	Run flutter test	2026-11-21T15:19:43.8550899Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: invalid actions, protected arrival and empty removal are exact no-ops
+web	Run flutter test	2026-11-21T15:19:43.8990133Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: blocking trees, replaceable plants and exact undo/redo including variants
+web	Run flutter test	2026-11-21T15:19:43.9475016Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: history is bounded and does not keep invalid actions
+web	Run flutter test	2026-11-21T15:19:43.9626634Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: JSON reproduces terrain, history traces, connectivity and variants
+web	Run flutter test	2026-11-21T15:19:44.0373245Z ✅ /home/runner/work/roag/roag/apps/settlement/test/model_test.dart: malformed/unsupported imports preserve the live scene and history
+web	Run flutter test	2026-11-21T15:19:49.0233673Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: active checkpoints survive every phase and repeated terrain edits without stale actor requests
+web	Run flutter test	2026-11-21T15:19:49.0519322Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: unemployed Firehouse has no suppression and town-wide response is bounded
+web	Run flutter test	2026-11-21T15:19:49.0939584Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: Watchpost coverage follows weighted road distance rather than visual proximity
+web	Run flutter test	2026-11-21T15:19:49.1266343Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: operational damage reduces actual Farm pay and Market service capacity exactly once
+web	Run flutter test	2026-11-21T15:19:49.1593612Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: healthy versus damaged Firehouse changes actual suppression capability
+web	Run flutter test	2026-11-21T15:19:49.2609601Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: rain limits fire spread and damage; all dry fire footprints remain bounded
+web	Run flutter test	2026-11-21T15:19:49.3048487Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: empty and disconnected stations supply no remote fire protection
+web	Run flutter test	2026-11-21T15:19:49.3738640Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: real refuge arrivals are bounded and confer shelter only after travel
+web	Run flutter test	2026-11-21T15:19:49.4182204Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: road edits interrupt wildlife without imaginary arrival or crop damage; reconnection resumes
+web	Run flutter test	2026-11-21T15:19:49.4840729Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: responders respect a broken real river crossing and retain position across reload
+web	Run flutter test	2026-11-21T15:19:49.5180864Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: condition follows damaged relocation, layout history and persistence without restored health
+web	Run flutter test	2026-11-21T15:19:49.6387812Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: naturally scheduled incidents honor grace, independent RNG and cooldown
+web	Run flutter test	2026-11-21T15:19:49.7185824Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: presentation/cadence and offscreen inspection do not change incident outcomes
+web	Run flutter test	2026-11-21T15:19:49.7687495Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: malformed incident imports are refused and leave existing settlement untouched
+web	Run flutter test	2026-11-21T15:19:49.8019801Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: legacy Goal08 checkpoint preserves identities, economy, land and visitor history exactly
+web	Run flutter test	2026-11-21T15:19:49.8973820Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: staffed Inn hosts real post-visit rest without repeating trade rewards and resumes exactly
+web	Run flutter test	2026-11-21T15:19:49.9784471Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_edges_test.dart: removed Inn sends resting guests home, without duplicate income or population
+web	Run flutter test	2026-11-21T15:19:51.0213513Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: actual guard work consumes a repaired Watchpost charge before Undo
+web	Run flutter test	2026-11-21T15:19:51.3670825Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: Undo of an unusable home repair retains real displacement and exact continuation
+web	Run flutter test	2026-11-21T15:19:51.4187022Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: burning relocation is refused without changing identity, money or layout
+web	Run flutter test	2026-11-21T15:19:51.4496397Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: protective buildings attract actual automatic staff and preserve identities
+web	Run flutter test	2026-11-21T15:19:51.5762506Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: staffed firefighters travel, actually suppress, and reduce comparable fire damage
+web	Run flutter test	2026-11-21T15:19:51.6113547Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: fire damage is real, safe repair restores original home and no resident disappears
+web	Run flutter test	2026-11-21T15:19:51.8042889Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: watch guards reach a real rabbit and reduce actual crop damage
+web	Run flutter test	2026-11-21T15:19:51.8780164Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: active fire and real response resume exactly from schema-5 checkpoints
+web	Run flutter test	2026-11-21T15:19:51.9515220Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: active wildlife movement and grazing restore without duplicate damage
+web	Run flutter test	2026-11-21T15:19:51.9786312Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: Peaceful forbids new destruction; old colony data migrates healthy and opted out
+web	Run flutter test	2026-11-21T15:19:52.0785165Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal09_incident_test.dart: actual work and home returns develop a building without changing its capacity
+web	Run flutter test	2026-11-21T15:19:52.7354158Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: versioned calendar has four six-day seasons, years and anchored legacy dates
+web	Run flutter test	2026-11-21T15:19:52.7794973Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: seasonal weather and next-day forecast are reproducible, independently inspectable and versioned
+web	Run flutter test	2026-11-21T15:19:52.7840958Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: four Farm seasons and adverse weather apply once with harvest and a moderate cap
+web	Run flutter test	2026-11-21T15:19:52.9742774Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: season and weather change real productive payments, never assignment or travel pay
+web	Run flutter test	2026-11-21T15:19:53.0196030Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: navigation and actual traversal share max of weather and wet ground; Stone stays useful
+web	Run flutter test	2026-11-21T15:19:53.0281899Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: day-boundary weather invalidates future routes while keeping underway edge and no teleport
+web	Run flutter test	2026-11-21T15:19:53.1322808Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: new homes have distinct seeded peoples, independent individual traits, stable identity and readable inspection
+web	Run flutter test	2026-11-21T15:19:53.2430266Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: Imp work and Djinn leisure are real preferences and Green Thumb remains individual
+web	Run flutter test	2026-11-21T15:19:53.3780546Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: both visitors enter, walk, perform a real activity, benefit actual listeners and depart
+web	Run flutter test	2026-11-21T15:19:53.5015786Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: active visitor save/load and optional dialogue do not duplicate rewards, costs or activity
+web	Run flutter test	2026-11-21T15:19:53.5506701Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: removing a venue during a visit stops its activity without free payment and leaves legally
+web	Run flutter test	2026-11-21T15:19:53.6024759Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: cutting and reconnecting a visitor route waits safely with no fictional crossing
+web	Run flutter test	2026-11-21T15:19:55.0455321Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: completed visitors recur with durable memory; bounded history and construction Undo stay forward
+web	Run flutter test	2026-11-21T15:19:55.0833734Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: legacy human checkpoint preserves every old field, event and money; migration never replays time
+web	Run flutter test	2026-11-21T15:19:55.1393486Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: climate and visitor malformed imports fail before an existing colony is replaced
+web	Run flutter test	2026-11-21T15:19:55.3619326Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: render cadence, inspection, cosmetic motion and forecasts do not consume simulation streams
+web	Run flutter test	2026-11-21T15:19:55.6161108Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: one clock gives identical seasonal/visitor outcomes at 1× and 4×
+web	Run flutter test	2026-11-21T15:19:57.3456057Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: 500 people and two real guests share bounded planning, capacity and weather-edit recovery
+web	Run flutter test	2026-11-21T15:19:57.3946848Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: Garden Path visitor bookkeeping and relocated venue resume exactly after reload
+web	Run flutter test	2026-11-21T15:19:57.4651647Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: guests use a real river bridge and safely wait after its removal
+web	Run flutter test	2026-11-21T15:19:57.4734078Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal08_test.dart: actual actor atlas retains all old frames and distinct selected source masks
+web	Run flutter test	2026-11-21T15:19:58.3675044Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: arrival itself pays no work or social reward
+web	Run flutter test	2026-11-21T15:19:58.4572513Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: green seats describe real visits and a full-green complaint is physically waiting
+web	Run flutter test	2026-11-21T15:19:58.5247588Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: home disconnection has one bounded cause, then reconnection removes it
+web	Run flutter test	2026-11-21T15:19:58.6752356Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: a real day accrues exactly the grant and no offline catch-up
+web	Run flutter test	2026-11-21T15:19:58.6843152Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: garden and green brushes price each unique footprint once and cancel without charge
+web	Run flutter test	2026-11-21T15:19:58.7200282Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: speech scheduling linked to a real colony changes no authoritative field
+web	Run flutter test	2026-11-21T15:19:58.8211744Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+web	Run flutter test	2026-11-21T15:19:58.8903484Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: malformed productive locations and gathering identities are rejected
+web	Run flutter test	2026-11-21T15:19:58.9307098Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: reconnecting a green at night clears the old unreachable reason immediately
+web	Run flutter test	2026-11-21T15:19:58.9597692Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: schema-one checkpoints also initialise the colony without changing the original lots
+web	Run flutter test	2026-11-21T15:19:58.9782151Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_edges_test.dart: cutting a lane cannot improve mood by hiding two missed opportunities
+web	Run flutter test	2026-11-21T15:19:59.7154522Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: Farm/Park labels preserve old identifiers, costs and capacities
+web	Run flutter test	2026-11-21T15:19:59.8221585Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: stable cast survives unrelated additions, removal, Undo/Redo and portable checkpoints
+web	Run flutter test	2026-11-21T15:19:59.8579383Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: unknown appearance IDs retain identity and resolve to a safe sprite
+web	Run flutter test	2026-11-21T15:19:59.8675121Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: standing slots stay bounded and existing people do not shift when another arrives
+web	Run flutter test	2026-11-21T15:19:59.8708991Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: travel lanes stay on the actual cardinal edge; rest and reduced motion remain grounded
+web	Run flutter test	2026-11-21T15:20:00.2739197Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: cosmetic updates, speech and inspection cannot advance the colony
+web	Run flutter test	2026-11-21T15:20:00.2833616Z ✅ /home/runner/work/roag/roag/apps/settlement/test/resident_presentation_test.dart: inspection and speech distinguish missing farms from disconnected farms
+web	Run flutter test	2026-11-21T15:20:02.8266098Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_progression_test.dart: genuine three-town trade completes the Network once and Undo leaves its state forward
+web	Run flutter test	2026-11-21T15:20:03.8627655Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_progression_test.dart: Monument spends actual goods and coins, persists, and disappears with its Hall without a project refund
+web	Run flutter test	2026-11-21T15:20:03.8853560Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_progression_test.dart: Resilience recognises real trained, connected infrastructure instead of bare building counts
+web	Run flutter test	2026-11-21T15:20:03.9513810Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+web	Run flutter test	2026-11-21T15:20:03.9985882Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_progression_test.dart: future-region discovery requires a real completed route, and Free Build remains available
+web	Run flutter test	2026-11-21T15:20:04.0299123Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_progression_test.dart: stale regional snapshots cannot overwrite newer clock, stock or delivery state
+web	Run flutter test	2026-11-21T15:20:04.0420399Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: generation and pure inspection cannot consume later event streams
+web	Run flutter test	2026-11-21T15:20:04.0584117Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: terrain placement matrix, clearing, planting and relocation use authoritative rules
+web	Run flutter test	2026-11-21T15:20:04.0722025Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: landscape strokes dedupe, capture a budget, cancel and preserve forward income on undo
+web	Run flutter test	2026-11-21T15:20:04.0856689Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: bridge strokes are atomic, paid once, cancel safely and repair the real physical gap
+web	Run flutter test	2026-11-21T15:20:04.0997113Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: floating, bent, overlong, occupied and unfunded bridges cannot commit
+web	Run flutter test	2026-11-21T15:20:04.1861433Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: actual residents cross water only on a complete crossing and stop on a broken crossing
+web	Run flutter test	2026-11-21T15:20:04.1980236Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: weighted routes and actual edge speed compose terrain, weather, road and trait once
+web	Run flutter test	2026-11-21T15:20:04.2042178Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: weighted navigation chooses the cheaper dry/stone detour and agrees with traversal speed
+web	Run flutter test	2026-11-21T15:20:04.2098955Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: vertical bridges have only aligned edges; removing a land approach invalidates the complete span
+web	Run flutter test	2026-11-21T15:20:04.2586848Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: inspection explains actual terrain, wet road costs and a broken crossing
+web	Run flutter test	2026-11-21T15:20:04.3760639Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: terrain navigation and work remain identical at different render-frame cadences
+web	Run flutter test	2026-11-21T15:20:04.4251105Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: concrete terrain and new metadata round-trip; future version does not regenerate
+web	Run flutter test	2026-11-21T15:20:04.4693586Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: legacy checkpoint retains all concrete lots, clock, event RNG and durable people exactly
+web	Run flutter test	2026-11-21T15:20:05.7453632Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal07_test.dart: New World draft cancellation, inspection and export do not replace the active world
+web	Run flutter test	2026-11-21T15:20:06.6046287Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_region_test.dart: regional seeds use the established numeric and Unicode semantics
+web	Run flutter test	2026-11-21T15:20:06.7740994Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_safety_test.dart: Centre needs two reliable partners, real protection and a standing landmark; recognition latches
+web	Run flutter test	2026-11-21T15:20:06.7853345Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_safety_test.dart: forestry uses reachable local land, including legacy oak, never across water or rock
+web	Run flutter test	2026-11-21T15:20:07.0254229Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_safety_test.dart: premature and duplicate service callbacks cannot create a delivery
+web	Run flutter test	2026-11-21T15:20:07.0446401Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_region_test.dart: 600 regions have stable IDs, connected early opportunities and later discoveries
+web	Run flutter test	2026-11-21T15:20:07.0473205Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_region_test.dart: travel uses only known connected geography and reroutes around closures
+web	Run flutter test	2026-11-21T15:20:07.0527508Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_region_test.dart: malformed or disconnected persisted regional graphs are rejected
+web	Run flutter test	2026-11-21T15:20:07.1240171Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_safety_test.dart: regional cargo rejects forged quantities and inconsistent chronology
+web	Run flutter test	2026-11-21T15:20:07.3529364Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_safety_test.dart: profiling is observational and cannot change authoritative continuation
+web	Run flutter test	2026-11-21T15:20:08.1960795Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_region_test.dart: new environments retain viable openings, concrete persistence and distinctive geography
+web	Run flutter test	2026-11-21T15:20:08.8988666Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: goods require actual work; Materials require maintained woodland and access
+web	Run flutter test	2026-11-21T15:20:09.1882470Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: three workplaces pay only productive worker time, each at its actual rate
+web	Run flutter test	2026-11-21T15:20:09.5359923Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: automatic trade reserves real goods, pays once at actual arrival and is zero-sum
+web	Run flutter test	2026-11-21T15:20:09.6153867Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Markets need a present vendor, real customers and six service seconds; credits survive reload and demolition
+web	Run flutter test	2026-11-21T15:20:09.6353755Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: an empty Market creates no trade and no unstaffed service progress
+web	Run flutter test	2026-11-21T15:20:09.6515301Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: road replacements charge exact changed cells, dedupe, cancel, Undo and atomic Redo
+web	Run flutter test	2026-11-21T15:20:09.6682474Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Stone, Garden, rain and Brisk factors share actual segment costs; an underway segment freezes
+web	Run flutter test	2026-11-21T15:20:09.6714541Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: weighted route fields prefer a longer quick route and reject obsolete revisions
+web	Run flutter test	2026-11-21T15:20:09.7079851Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Garden Path benefit needs a completed traversal, once daily; edits and Undo do not award or rewind it
+web	Run flutter test	2026-11-21T15:20:09.7393806Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: rain prefers an available Hall for new visits without interrupting a valid visit
+web	Run flutter test	2026-11-21T15:20:09.7567353Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: harvest bonus only pays for actual Farm work, not workshop work or ownership
+web	Run flutter test	2026-11-21T15:20:09.8436608Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Market day bonuses attach to the single daily credited trade
+web	Run flutter test	2026-11-21T15:20:09.9466995Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: natural event decisions are seeded, one at a time and survive reload/Undo
+web	Run flutter test	2026-11-21T15:20:09.9829638Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: names, traits, appearances and daily credits remain stable through legacy load and reconciliation
+web	Run flutter test	2026-11-21T15:20:09.9934804Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: transit save/reload continues the same cargo and outcome without extra payments
+web	Run flutter test	2026-11-21T15:20:10.0000508Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Green thumb guides new assignment and retains an existing valid job; Sociable benefits a real visit
+web	Run flutter test	2026-11-21T15:20:10.0444108Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: cancelling an uncollected reservation restores escrow and goods exactly once
+web	Run flutter test	2026-11-21T15:20:10.3029737Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: Peaceful access interruption causes a real return journey, not a fictitious delivery
+web	Run flutter test	2026-11-21T15:20:10.5358434Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_trade_test.dart: Standard prolonged obstruction loses cargo and refunds escrow without paying the exporter
+web	Run flutter test	2026-11-21T15:20:11.2414056Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: bounded fair planning rejects stale work and drains after a substantial 500-person edit
+web	Run flutter test	2026-11-21T15:20:11.2796216Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: multi-cottage stroke stages immediately, saves committed data only, undo/redo exact IDs
+web	Run flutter test	2026-11-21T15:20:11.2859173Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: fast diagonal uses deterministic cardinal crossings, with X first at ties
+web	Run flutter test	2026-11-21T15:20:11.2873447Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: fixed-step progression agrees across render rates and off-screen presentation is irrelevant
+web	Run flutter test	2026-11-21T15:20:11.2897016Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: obstacles block connectivity beyond pointer route; brush never routes around them
+web	Run flutter test	2026-11-21T15:20:11.2926485Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: only successes deduplicate; previously invalid anchor can become valid later
+web	Run flutter test	2026-11-21T15:20:11.3026304Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: mixed cottage candidates, repeated visits and removal respect logical footprints
+web	Run flutter test	2026-11-21T15:20:11.3088679Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: no-op strokes create no history; cancel and undo-during-stroke preserve exact state
+web	Run flutter test	2026-11-21T15:20:11.3123718Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: road/weather/trait costs change actual arrival ticks, and daily path credit renews only after a later traversal
+web	Run flutter test	2026-11-21T15:20:11.3186547Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: rain changes a new visit choice from nearby Park to covered Hall
+web	Run flutter test	2026-11-21T15:20:11.3213400Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: committed snapshots reject stale deferred writers after commit, undo or import
+web	Run flutter test	2026-11-21T15:20:11.3434177Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: preview never invalidates navigation; import rebases fresh queue work while preserving continuation
+web	Run flutter test	2026-11-21T15:20:11.3495764Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: special eligibility, cooldown and expiry are explicit and do not pay ownership income
+web	Run flutter test	2026-11-21T15:20:11.3528572Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: real schema-one scene migrates without changing terrain, traces or variants
+web	Run flutter test	2026-11-21T15:20:11.3684745Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: invalid duplicate or orphan identities preserve the current scene
+web	Run flutter test	2026-11-21T15:20:11.3872208Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: malformed additive save fields are rejected at their owning boundary
+web	Run flutter test	2026-11-21T15:20:11.3962752Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: residents appear only after commit, stagger arrivals and reach their own access
+web	Run flutter test	2026-11-21T15:20:11.4058924Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: fully employed ordinary towns still serve Market customers during scheduled events
+web	Run flutter test	2026-11-21T15:20:11.4141933Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: unrelated construction, demolition and history retain resident names and traits
+web	Run flutter test	2026-11-21T15:20:11.4282270Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: event streams remain valid at seed boundaries without consuming identity randomness
+web	Run flutter test	2026-11-21T15:20:11.4661429Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Market inspection states exact trade and separate vendor income
+web	Run flutter test	2026-11-21T15:20:11.4702520Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: weather invalidates active future routes after the frozen current edge
+web	Run flutter test	2026-11-21T15:20:11.5418726Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: residents visit actual reachable greens; a single resident can complete leisure
+web	Run flutter test	2026-11-21T15:20:11.5536444Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: removed underfoot paths cause bounded local settling and waiting, then reconnect
+web	Run flutter test	2026-11-21T15:20:11.5563265Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: Hall gathering uses real capacity and awards actual attendees once
+web	Run flutter test	2026-11-21T15:20:11.5595540Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche05_test.dart: batched atlas keeps each approved body/palette/mirror and feet anchor
+web	Run flutter test	2026-11-21T15:20:11.5597371Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: cut route reroutes through an existing legal loop; disconnected homes stop outings
+web	Run flutter test	2026-11-21T15:20:11.6234006Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: pending arrivals and visits reconcile through history, load and destination removal
+web	Run flutter test	2026-11-21T15:20:11.6303407Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: a removed cell under a moving resident settles onto its surviving edge endpoint
+web	Run flutter test	2026-11-21T15:20:11.6365068Z ✅ /home/runner/work/roag/roag/apps/settlement/test/brush_residents_test.dart: background pause cannot catch up queued residents or rewrite authored state
+web	Run flutter test	2026-11-21T15:20:12.4279308Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: all catalogue sprites use the same runtime building/road samples and verified frames
+web	Run flutter test	2026-11-21T15:20:12.5273993Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: relocation vacates one site, preserves identity/variant/counter, replaces scenery and creates one free history entry
+web	Run flutter test	2026-11-21T15:20:12.5839545Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: every building kind relocates with the same identity, and blocked scenery rejects the move
+web	Run flutter test	2026-11-21T15:20:12.6925352Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: work requires real travel, two jobs, and validated productive time
+web	Run flutter test	2026-11-21T15:20:12.7337701Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: fresh garden promptly fills during daytime, assignments stay stable
+web	Run flutter test	2026-11-21T15:20:12.7574980Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: social benefits require a real six-second visit and seats count arrivals
+web	Run flutter test	2026-11-21T15:20:12.8727007Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: mood starts neutral, grace protects newcomers, valid work travel is not a failure
+web	Run flutter test	2026-11-21T15:20:12.9333552Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: cut workplace reports a broken connection, restored access resumes work
+web	Run flutter test	2026-11-21T15:20:12.9386204Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: moving an active gathering venue keeps event identity and already awarded benefits through Undo
+web	Run flutter test	2026-11-21T15:20:12.9787656Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: invalid, stale and cancelled relocation changes no authored or simulation state
+web	Run flutter test	2026-11-21T15:20:12.9901849Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: fixed stroke budget retains background earnings on commit and cancellation
+web	Run flutter test	2026-11-21T15:20:13.0487216Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: undo refunds only recorded price; redo is atomic if unaffordable
+web	Run flutter test	2026-11-21T15:20:13.0521475Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: moving an active cottage retains the actual person and routes without teleporting; immediate checkpoint is valid
+web	Run flutter test	2026-11-21T15:20:13.0692392Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: demolition is free and undo demolition does not charge; unlimited records zero
+web	Run flutter test	2026-11-21T15:20:13.0833437Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: moving an occupied workplace invalidates routes and productive presence before save without extra pay
+web	Run flutter test	2026-11-21T15:20:13.0993818Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: resident identity, appearance, earnings and experience survive removal and undo
+web	Run flutter test	2026-11-21T15:20:13.1153762Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: moving an occupied social destination neither teleports visitors nor reissues their benefits
+web	Run flutter test	2026-11-21T15:20:13.1568899Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: relocation history preserves forward earnings, event identity and exact terrain at both sites
+web	Run flutter test	2026-11-21T15:20:13.1790272Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: viewing all relevant dialogue branches changes no gameplay, RNG, request or money state
+web	Run flutter test	2026-11-21T15:20:13.1933393Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: request acceptance is explicit, bounded, contextual and reversible only by withdrawal
+web	Run flutter test	2026-11-21T15:20:13.2143506Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: current checkpoint resumes progress and fractional income without grants or duplicates
+web	Run flutter test	2026-11-21T15:20:13.2549277Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: pause, accelerated simulation and large background delta use one bounded clock
+web	Run flutter test	2026-11-21T15:20:13.3122649Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: a work request resolves only from its actual resident productive tick, once across history and reload
+web	Run flutter test	2026-11-21T15:20:13.3346943Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: an unreachable-work request is not satisfied by an unrelated Farm, only actual regained work
+web	Run flutter test	2026-11-21T15:20:13.3463043Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: social requests require a completed real visit and do not complete on construction or arrival
+web	Run flutter test	2026-11-21T15:20:13.3464833Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: seeded evening gathering follows real work/social activity and rewards actual attendees once
+web	Run flutter test	2026-11-21T15:20:13.3593365Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: removing a home withdraws its open promise without reward; Undo restores the same person but not a promise rewind
+web	Run flutter test	2026-11-21T15:20:13.3797236Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: dialogue experiences reflect real completed work, visits and gathering participation
+web	Run flutter test	2026-11-21T15:20:13.3827569Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: green removal ends a gathering, no phantom attendee reward after undo
+web	Run flutter test	2026-11-21T15:20:13.4550737Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: Market-day branches charge once and benefit only bounded actual qualifying service
+web	Run flutter test	2026-11-21T15:20:13.5389867Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: sponsored hospitality reaches its six-person cap through real customer service
+web	Run flutter test	2026-11-21T15:20:13.5464821Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: camera-independent updates agree exactly and querying presentation awards nothing
+web	Run flutter test	2026-11-21T15:20:13.5778060Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: 74-cottage old-format save migrates once, keeps layout, neutral mood and original palettes
+web	Run flutter test	2026-11-21T15:20:13.5948149Z ✅ /home/runner/work/roag/roag/apps/settlement/test/colony_test.dart: invalid checkpoint is refused without replacing a live colony
+web	Run flutter test	2026-11-21T15:20:13.5980573Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: paused multi-home demolition removes dead route owners and immediately exports a valid checkpoint
+web	Run flutter test	2026-11-21T15:20:13.6184592Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: a Market day with only its vendor no longer offers or charges a civic choice
+web	Run flutter test	2026-11-21T15:20:13.6354732Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: civic sponsorship rejects stale events, insufficient funds and missing participants without spending
+web	Run flutter test	2026-11-21T15:20:13.6486059Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: sponsored civic consequences survive unrelated construction Undo and export/import without another payment
+web	Run flutter test	2026-11-21T15:20:13.6765604Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: past civic decisions and remaining benefits survive the next event and cannot be charged again
+web	Run flutter test	2026-11-21T15:20:13.6920832Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: old checkpoints have no fabricated conversations, requests, civic decisions or benefits
+web	Run flutter test	2026-11-21T15:20:13.7331504Z ✅ /home/runner/work/roag/roag/apps/settlement/test/tranche06_test.dart: malformed request rewards and civic decisions are rejected before replacing a save
+web	Run flutter test	2026-11-21T15:20:14.9003579Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: Highland objectives require real work beyond the pass and reject a route cut during danger even after reconnection
+web	Run flutter test	2026-11-21T15:20:15.0812446Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: past exposure does not invent participation in a later assistance encounter
+web	Run flutter test	2026-11-21T15:20:15.1549499Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: a caravan reserves one future Inn place and cannot gain service while all real spaces are occupied
+web	Run flutter test	2026-11-21T15:20:15.6635337Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: natural flood eligibility uses prolonged rain, warning, one active owner and real recovery cooldown
+web	Run flutter test	2026-11-21T15:20:15.7390318Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: an isolated trained Watchpost cannot protect an accessible Market; reconnecting restores actual protection
+web	Run flutter test	2026-11-21T15:20:15.7485594Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: a present but unstaffed Inn never provides assistance or a reward
+web	Run flutter test	2026-11-21T15:20:15.8287946Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: serious recovery objectives need real staff and a safe recovered town; achievements cannot refund or duplicate money
+web	Run flutter test	2026-11-21T15:20:16.6885577Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+web	Run flutter test	2026-11-21T15:20:16.6921974Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: two different truthful causes fit and blocked UI areas are avoided
+web	Run flutter test	2026-11-21T15:20:16.6947892Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: resolved complaints, off-screen people and inactive owners clear promptly
+web	Run flutter test	2026-11-21T15:20:16.6970605Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: overlapping candidates are deferred and positives can share the visible limit
+web	Run flutter test	2026-11-21T15:20:16.7157472Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: speech display does not mutate resident activity, reasons, money or history
+web	Run flutter test	2026-11-21T15:20:16.7180413Z ✅ /home/runner/work/roag/roag/apps/settlement/test/speech_test.dart: a delayed journey utterance cannot start after its activity has changed
+web	Run flutter test	2026-11-21T15:20:17.5102863Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: legacy migration retains the exact existing authoritative colony and money
+web	Run flutter test	2026-11-21T15:20:17.5715033Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: discovery and paid founding are reachable, explicit and idempotent
+web	Run flutter test	2026-11-21T15:20:17.5836768Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: an undeveloped town sees attainable requirements instead of founding for free
+web	Run flutter test	2026-11-21T15:20:17.6239908Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: three towns retain stable IDs and independently owned construction histories
+web	Run flutter test	2026-11-21T15:20:17.8130594Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: all towns share one timeline and switching adds no elapsed time
+web	Run flutter test	2026-11-21T15:20:18.0525867Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: background operation earns exactly the standalone model outcome
+web	Run flutter test	2026-11-21T15:20:18.1791972Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: render rate and selected town do not affect regional simulation
+web	Run flutter test	2026-11-21T15:20:18.2221891Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal11_lifecycle_test.dart: invalid regional imports cannot mutate the existing region
+web	Run flutter test	2026-11-21T15:20:20.8861127Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: 900 challenging seeds have reproducible terrain, enough clear land and affordable eastward access
+web	Run flutter test	2026-11-21T15:20:20.9052353Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: v2 old presets preserve frozen terrain hashes and loading never regenerates new worlds
+web	Run flutter test	2026-11-21T15:20:20.9096193Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: prolonged wetland rain changes marsh costs once, Stone mitigates and navigation agrees
+web	Run flutter test	2026-11-21T15:20:20.9692525Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: flood warning is inert, contiguous bounded water closes real roads and recedes without regenerating terrain
+web	Run flutter test	2026-11-21T15:20:21.0022121Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: Stone roads retain actual flood access and prepared residents reach real shelter
+web	Run flutter test	2026-11-21T15:20:21.1169225Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: active flood reload, reconstruction and exact forward Undo retain closures and damage
+web	Run flutter test	2026-11-21T15:20:21.1734084Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: flood target removed while active still recedes safely
+web	Run flutter test	2026-11-21T15:20:21.2550549Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: brigands must reach the Market; loss is bounded and actual trained guards reduce it
+web	Run flutter test	2026-11-21T15:20:21.2939365Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: cut approaches stop theft and unreachable Watchposts provide no fictional response
+web	Run flutter test	2026-11-21T15:20:25.0382828Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: every new actor and flood checkpoint resumes identically through warnings, edits, activity and retreat
+web	Run flutter test	2026-11-21T15:20:25.0967052Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: caravan receives no reward without actual service, waits through a cut and retains helped memory after departure
+web	Run flutter test	2026-11-21T15:20:25.1150606Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: an unstaffed Inn cannot award a caravan reward and removal causes legal retreat
+web	Run flutter test	2026-11-21T15:20:25.1496309Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: Peaceful keeps destructive incidents off but allows assistance; cooldown and damaged-town recovery defer threats
+web	Run flutter test	2026-11-21T15:20:25.1598334Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: scenario selection preserves entered seeds; optional objectives need real activity and persist through Undo and reload
+web	Run flutter test	2026-11-21T15:20:25.1667609Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: the trade scenario cannot complete a merchant objective from caravan pay or previews
+web	Run flutter test	2026-11-21T15:20:25.1854312Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: schema-5 old towns migrate to Free Build without resetting incident choice, identities or concrete terrain
+web	Run flutter test	2026-11-21T15:20:25.2689761Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: malformed flooding, future scenarios and contradictory active encounter imports reject atomically
+web	Run flutter test	2026-11-21T15:20:25.3871136Z ✅ /home/runner/work/roag/roag/apps/settlement/test/goal10_test.dart: inspection and render cadence cannot reroll incidents or alter continuation; bounded persistent histories
+web	Run flutter test	2026-11-21T15:20:25.4128764Z ##[endgroup]
+web	Run flutter test	2026-11-21T15:20:25.4129086Z 
+web	Run flutter test	2026-11-21T15:20:25.4135511Z 🎉 243 tests passed.
+web	Run node tool/storage_codec_test.cjs	﻿2026-11-21T15:20:25.5272992Z ##[group]Run node tool/storage_codec_test.cjs
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5273418Z ^[[36;1mnode tool/storage_codec_test.cjs^[[0m
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5305546Z shell: /usr/bin/bash -e {0}
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5305830Z env:
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5306178Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5306612Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.5306889Z ##[endgroup]
+web	Run node tool/storage_codec_test.cjs	2026-11-21T15:20:25.8458951Z {"checks":6,"originalCharacters":234864,"packedCharacters":218500,"ratio":0.9303256352612576,"legacyBytesPreserved":true,"quotaFailurePreservedPriorSave":true}
+web	Build self-contained Pages release	﻿2026-11-21T15:20:25.8589549Z ##[group]Run bash tool/release.sh '/roag/settlement/'
+web	Build self-contained Pages release	2026-11-21T15:20:25.8590007Z ^[[36;1mbash tool/release.sh '/roag/settlement/'^[[0m
+web	Build self-contained Pages release	2026-11-21T15:20:25.8622190Z shell: /usr/bin/bash -e {0}
+web	Build self-contained Pages release	2026-11-21T15:20:25.8622459Z env:
+web	Build self-contained Pages release	2026-11-21T15:20:25.8622785Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Build self-contained Pages release	2026-11-21T15:20:25.8623197Z   PUB_CACHE: /home/runner/.pub-cache
+web	Build self-contained Pages release	2026-11-21T15:20:25.8623473Z ##[endgroup]
+web	Build self-contained Pages release	2026-11-21T15:20:26.1987837Z Resolving dependencies...
+web	Build self-contained Pages release	2026-11-21T15:20:26.2292725Z Downloading packages...
+web	Build self-contained Pages release	2026-11-21T15:20:26.2308157Z   cupertino_ui 1.1.6 (1.1.7 available)
+web	Build self-contained Pages release	2026-11-21T15:20:26.2308827Z   material_color_utilities 0.13.0 (0.13.1 available)
+web	Build self-contained Pages release	2026-11-21T15:20:26.2309401Z   material_ui 1.11.0 (1.11.1 available)
+web	Build self-contained Pages release	2026-11-21T15:20:26.2309901Z   test_api 0.7.14 (0.7.15 available)
+web	Build self-contained Pages release	2026-11-21T15:20:26.2310365Z Got dependencies!
+web	Build self-contained Pages release	2026-11-21T15:20:26.2310960Z 4 packages have newer versions incompatible with dependency constraints.
+web	Build self-contained Pages release	2026-11-21T15:20:26.2312035Z Try `flutter pub outdated` for more information.
+web	Build self-contained Pages release	2026-11-21T15:21:13.3508555Z Compiling lib/main.dart for the Web...                          
+web	Build self-contained Pages release	2026-11-21T15:21:13.3518616Z Wasm dry run succeeded. Consider building and testing your application with the `--wasm` flag. See docs for more info: https://docs.flutter.dev/platform-integration/web/wasm
+web	Build self-contained Pages release	2026-11-21T15:21:13.3524124Z Use --no-wasm-dry-run to disable these warnings.
+web	Build self-contained Pages release	2026-11-21T15:21:13.9782896Z Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 2392 bytes (99.9% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+web	Build self-contained Pages release	2026-11-21T15:21:14.3947557Z Compiling lib/main.dart for the Web...                             48.0s
+web	Build self-contained Pages release	2026-11-21T15:21:14.3952753Z ✓ Built build/release-web
+web	Build self-contained Pages release	2026-11-21T15:21:14.4389125Z Built release with base path /roag/settlement/ in build/site/
+web	Run actions/upload-artifact@v4	﻿2026-11-21T15:21:14.4448668Z ##[group]Run actions/upload-artifact@v4
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4449259Z with:
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4449481Z   name: roag-settlement-web
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4449769Z   path: apps/settlement/build/site/
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4450058Z   if-no-files-found: warn
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4450311Z   compression-level: 6
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4450539Z   overwrite: false
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4450768Z   include-hidden-files: false
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4451018Z env:
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4451657Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4452103Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.4452384Z ##[endgroup]
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.6124515Z (node:3195) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.6125993Z (Use `node --trace-deprecation ...` to show where the warning was created)
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.6428959Z With the provided path, there will be 128 files uploaded
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.6435093Z Artifact name is valid!
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:14.6435784Z Root directory input is valid!
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:15.0444114Z Beginning upload of artifact content to blob storage
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:15.8778683Z (node:3195) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:16.7233507Z Uploaded bytes 8388608
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.4344956Z Uploaded bytes 14522080
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.5068497Z Finished uploading artifact content to blob storage!
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.5072594Z SHA256 digest of uploaded artifact zip is 4c8307f44bbab8bc484717b7fc9f470c0c61a640d4dddfde6dac300b9f3cef76
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.5074737Z Finalizing artifact upload
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.8891560Z Artifact roag-settlement-web.zip successfully finalized. Artifact ID 14713415271
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.8892806Z Artifact roag-settlement-web has been successfully uploaded! Final size is 14522080 bytes. Artifact ID is 14713415271
+web	Run actions/upload-artifact@v4	2026-11-21T15:21:17.8900754Z Artifact download URL: https://github.com/gongahkia/roag/actions/runs/44918484126/artifacts/14713415271
+web	Run actions/upload-pages-artifact@v4	﻿2026-11-21T15:21:17.9116956Z ##[group]Run actions/upload-pages-artifact@v4
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9117306Z with:
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9117537Z   path: apps/settlement/build/site/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9117824Z   name: github-pages
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9118061Z   retention-days: 1
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9118292Z env:
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9118600Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9119005Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9119282Z ##[endgroup]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9124673Z ##[start-action display=Archive artifact;id=__actions_upload-pages-artifact.__run]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9141848Z ##[group]Run echo ::group::Archive artifact
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9142205Z ^[[36;1mecho ::group::Archive artifact^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9142492Z ^[[36;1mtar \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9142765Z ^[[36;1m  --dereference --hard-dereference \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9143109Z ^[[36;1m  --directory "$INPUT_PATH" \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9143440Z ^[[36;1m  -cvf "$RUNNER_TEMP/artifact.tar" \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9143782Z ^[[36;1m  --exclude=.git \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9144061Z ^[[36;1m  --exclude=.github \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9144323Z ^[[36;1m  --exclude=".[^/]*" \^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9144577Z ^[[36;1m  .^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9144798Z ^[[36;1mecho ::endgroup::^[[0m
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9189592Z shell: /usr/bin/sh -e {0}
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9189908Z env:
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9190239Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9190678Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9191001Z   INPUT_PATH: apps/settlement/build/site/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9191544Z ##[endgroup]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9248230Z ##[group]Archive artifact
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9261838Z ./
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9262212Z ./index.html
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9262580Z ./settlement/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9262952Z ./settlement/version.json
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9263687Z ./settlement/flutter_service_worker.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9264159Z ./settlement/assets/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9264462Z ./settlement/assets/shaders/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9264810Z ./settlement/assets/shaders/ink_sparkle.frag
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9265228Z ./settlement/assets/shaders/stretch_effect.frag
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9265603Z ./settlement/assets/assets/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9265966Z ./settlement/assets/assets/SourceCodePro-Regular.otf
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9266721Z ./settlement/assets/assets/images/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9267333Z ./settlement/assets/assets/images/clear.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9267969Z ./settlement/assets/assets/images/workshop.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9268841Z ./settlement/assets/assets/images/person-cap-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9269560Z ./settlement/assets/assets/images/spruce.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9270152Z ./settlement/assets/assets/images/road7.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9270797Z ./settlement/assets/assets/images/person-imp-body-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9271435Z ./settlement/assets/assets/images/road8.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9272116Z ./settlement/assets/assets/images/vegetables.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9272794Z ./settlement/assets/assets/images/grid.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9273448Z ./settlement/assets/assets/images/visitor-torch.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9274120Z ./settlement/assets/assets/images/hall.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9274856Z ./settlement/assets/assets/images/person-djinn-body-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9275722Z ./settlement/assets/assets/images/rabbit.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9276336Z ./settlement/assets/assets/images/road11.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9276939Z ./settlement/assets/assets/images/water.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9277754Z ./settlement/assets/assets/images/person-longhair-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9278601Z ./settlement/assets/assets/images/oak-winter.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9279277Z ./settlement/assets/assets/images/person-plain-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9279907Z ./settlement/assets/assets/images/inn.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9280591Z ./settlement/assets/assets/images/regional-monument.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9281494Z ./settlement/assets/assets/images/person-merchant-body-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9282334Z ./settlement/assets/assets/images/road12.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9282897Z ./settlement/assets/assets/images/person-storyteller-body-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9283682Z ./settlement/assets/assets/images/grass1.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9284087Z ./settlement/assets/assets/images/person-rabbit-body-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9284560Z ./settlement/assets/assets/images/person-longhair-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9284968Z ./settlement/assets/assets/images/season-flowers.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9285379Z ./settlement/assets/assets/images/person-hood-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9285890Z ./settlement/assets/assets/images/road2.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9286693Z ./settlement/assets/assets/images/person-storyteller-body-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9287339Z ./settlement/assets/assets/images/road6.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9287759Z ./settlement/assets/assets/images/oak.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9288152Z ./settlement/assets/assets/images/person-djinn-body-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9288592Z ./settlement/assets/assets/images/person-cap-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9288956Z ./settlement/assets/assets/images/road4.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9289274Z ./settlement/assets/assets/images/coin.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9289646Z ./settlement/assets/assets/images/person-plain-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9290059Z ./settlement/assets/assets/images/resident-atlas.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9290415Z ./settlement/assets/assets/images/hammer.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9290798Z ./settlement/assets/assets/images/person-longhair-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9291204Z ./settlement/assets/assets/images/cottage0.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9291802Z ./settlement/assets/assets/images/bridge-v.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9292184Z ./settlement/assets/assets/images/person-plain-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9292648Z ./settlement/assets/assets/images/person-storyteller-body-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9293292Z ./settlement/assets/assets/images/watchpost.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9293675Z ./settlement/assets/assets/images/incident-actors-atlas.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9294124Z ./settlement/assets/assets/images/person-djinn-body-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9294515Z ./settlement/assets/assets/images/dirt.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9294841Z ./settlement/assets/assets/images/cottage1.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9295178Z ./settlement/assets/assets/images/merchant.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9295496Z ./settlement/assets/assets/images/flame.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9295833Z ./settlement/assets/assets/images/storyteller.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9296211Z ./settlement/assets/assets/images/person-cap-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9296577Z ./settlement/assets/assets/images/road5.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9296881Z ./settlement/assets/assets/images/imp.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9297206Z ./settlement/assets/assets/images/bridge-h.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9297529Z ./settlement/assets/assets/images/market.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9297852Z ./settlement/assets/assets/images/djinn.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9298205Z ./settlement/assets/assets/images/person-cap-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9298623Z ./settlement/assets/assets/images/person-hood-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9299000Z ./settlement/assets/assets/images/autumn-leaf.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9299394Z ./settlement/assets/assets/images/person-hood-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9300003Z ./settlement/assets/assets/images/world-actors-atlas.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9300727Z ./settlement/assets/assets/images/person-merchant-body-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9301221Z ./settlement/assets/assets/images/person-merchant-body-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9302009Z ./settlement/assets/assets/images/road3.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9302400Z ./settlement/assets/assets/images/person-djinn-body-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9302858Z ./settlement/assets/assets/images/person-rabbit-body-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9303260Z ./settlement/assets/assets/images/road10.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9303645Z ./settlement/assets/assets/images/person-imp-body-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9304033Z ./settlement/assets/assets/images/boulder.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9304599Z ./settlement/assets/assets/images/person-merchant-body-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9305041Z ./settlement/assets/assets/images/person-plain-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9305425Z ./settlement/assets/assets/images/refuge-gate.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9305836Z ./settlement/assets/assets/images/person-rabbit-body-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9306325Z ./settlement/assets/assets/images/person-rabbit-body-v1-teal.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9306729Z ./settlement/assets/assets/images/visitor-bag.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9307062Z ./settlement/assets/assets/images/grass0.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9307462Z ./settlement/assets/assets/images/person-longhair-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9307905Z ./settlement/assets/assets/images/person-imp-body-v1-lilac.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9308338Z ./settlement/assets/assets/images/person-imp-body-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9308724Z ./settlement/assets/assets/images/road0.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9309050Z ./settlement/assets/assets/images/firehouse.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9309387Z ./settlement/assets/assets/images/road1.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9309738Z ./settlement/assets/assets/images/person-hood-v1-clay.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9310108Z ./settlement/assets/assets/images/resident.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9310523Z ./settlement/assets/assets/images/person-storyteller-body-v1-cream.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9310945Z ./settlement/assets/assets/images/road9.png
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9311497Z ./settlement/assets/assets/LICENSE-SourceCodePro.md
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9311962Z ./settlement/assets/assets/ATTRIBUTION.txt
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9312273Z ./settlement/assets/assets/manifest.json
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9312574Z ./settlement/assets/fonts/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9312870Z ./settlement/assets/fonts/MaterialIcons-Regular.otf
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9313226Z ./settlement/assets/fonts/fallback/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9313707Z ./settlement/assets/fonts/fallback/Roboto-Regular.ttf
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9314062Z ./settlement/assets/AssetManifest.bin.json
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9314383Z ./settlement/assets/packages/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9314672Z ./settlement/assets/packages/material_ui/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9315003Z ./settlement/assets/packages/material_ui/shaders/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9315415Z ./settlement/assets/packages/material_ui/shaders/ink_sparkle.frag
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9315808Z ./settlement/assets/FontManifest.json
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9316102Z ./settlement/assets/AssetManifest.bin
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9316388Z ./settlement/assets/NOTICES
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9316637Z ./settlement/flutter.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9316883Z ./settlement/platform.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9317127Z ./settlement/main.dart.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9326074Z ./settlement/index.html
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9326532Z ./settlement/flutter_bootstrap.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9326999Z ./settlement/canvaskit/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9327381Z ./settlement/canvaskit/skwasm_heavy.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9331928Z ./settlement/canvaskit/wimp.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9358342Z ./settlement/canvaskit/canvaskit.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9359814Z ./settlement/canvaskit/webparagraph/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9360272Z ./settlement/canvaskit/webparagraph/canvaskit.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9363654Z ./settlement/canvaskit/webparagraph/canvaskit.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9394045Z ./settlement/canvaskit/webparagraph/canvaskit.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9394947Z ./settlement/canvaskit/canvaskit.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9453900Z ./settlement/canvaskit/skwasm.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9466919Z ./settlement/canvaskit/wimp.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9497114Z ./settlement/canvaskit/skwasm.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9527335Z ./settlement/canvaskit/skwasm.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9528047Z ./settlement/canvaskit/skwasm_heavy.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9570329Z ./settlement/canvaskit/wimp.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9571072Z ./settlement/canvaskit/skwasm_heavy.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9587307Z ./settlement/canvaskit/chromium/
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9587907Z ./settlement/canvaskit/chromium/canvaskit.js.symbols
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9597761Z ./settlement/canvaskit/chromium/canvaskit.wasm
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9641925Z ./settlement/canvaskit/chromium/canvaskit.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9642655Z ./settlement/canvaskit/canvaskit.js
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9643561Z ./settlement/flutter.js.map
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9648167Z ##[endgroup]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9657167Z ##[end-action id=__actions_upload-pages-artifact.__run;outcome=success;conclusion=success;duration_ms=53]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9661203Z ##[start-action display=Archive artifact;id=__actions_upload-pages-artifact.__run_2]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9666083Z ##[end-action id=__actions_upload-pages-artifact.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9668816Z ##[start-action display=Archive artifact;id=__actions_upload-pages-artifact.__run_3]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9672830Z ##[end-action id=__actions_upload-pages-artifact.__run_3;outcome=skipped;conclusion=skipped;duration_ms=0]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9674968Z ##[start-action display=Upload artifact;id=__actions_upload-pages-artifact.upload-artifact]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9709973Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9710392Z with:
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9710606Z   name: github-pages
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9710875Z   path: /home/runner/work/_temp/artifact.tar
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9711183Z   retention-days: 1
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9711589Z   if-no-files-found: error
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9711849Z   compression-level: 6
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9712089Z   overwrite: false
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9712320Z   include-hidden-files: false
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9712579Z env:
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9712886Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.50.0-x64/flutter
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9713291Z   PUB_CACHE: /home/runner/.pub-cache
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:17.9713570Z ##[endgroup]
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.1364526Z (node:3211) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.1365620Z (Use `node --trace-deprecation ...` to show where the warning was created)
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.1413285Z With the provided path, there will be 1 file uploaded
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.1416630Z Artifact name is valid!
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.1417690Z Root directory input is valid!
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:18.5356459Z Beginning upload of artifact content to blob storage
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:19.2882512Z (node:3211) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.1354023Z Uploaded bytes 8388608
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.3357905Z Uploaded bytes 14503402
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.4075648Z Finished uploading artifact content to blob storage!
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.4076913Z SHA256 digest of uploaded artifact zip is 4edec954e44a0e754bb70674185c02fdeaa842f538a9f71eaaef554a234fe63a
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.4078510Z Finalizing artifact upload
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.7914946Z Artifact github-pages.zip successfully finalized. Artifact ID 14713370381
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.7916390Z Artifact github-pages has been successfully uploaded! Final size is 14503402 bytes. Artifact ID is 14713370381
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.7925459Z Artifact download URL: https://github.com/gongahkia/roag/actions/runs/44918484126/artifacts/14713370381
+web	Run actions/upload-pages-artifact@v4	2026-11-21T15:21:20.8092974Z ##[end-action id=__actions_upload-pages-artifact.upload-artifact;outcome=success;conclusion=success;duration_ms=2841]
+web	Post Run subosito/flutter-action@v2	﻿2026-11-21T15:21:20.8258133Z Post job cleanup.
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:20.8263104Z ##[start-action display=Cache pub dependencies;id=__028a147e-5c24-42ed-8ef1-42f83b14d70b.cache-pub]
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.0724294Z Post job cleanup.
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.2088565Z Cache hit occurred on the primary key flutter-pub-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb-4470259cb6b307a1b69c686b50b7da3b386da665c09a715e742aaeccd67e17e2, not saving cache.
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.2166876Z ##[end-action id=__028a147e-5c24-42ed-8ef1-42f83b14d70b.cache-pub;outcome=success;conclusion=success;duration_ms=390]
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.2172033Z ##[start-action display=Cache Flutter;id=__028a147e-5c24-42ed-8ef1-42f83b14d70b.cache-flutter]
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.2233004Z Post job cleanup.
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.3545078Z Cache hit occurred on the primary key flutter-linux-stable-3.50.0-x64-ab2912035e160d9cad6306df307576da6128ebdb, not saving cache.
+web	Post Run subosito/flutter-action@v2	2026-11-21T15:21:21.3620141Z ##[end-action id=__028a147e-5c24-42ed-8ef1-42f83b14d70b.cache-flutter;outcome=success;conclusion=success;duration_ms=144]
+web	Post Run actions/checkout@v6	﻿2026-11-21T15:21:21.3761167Z Post job cleanup.
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4659554Z [command]/usr/bin/git version
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4704557Z git version 2.56.1
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4745870Z Temporarily overriding HOME='/home/runner/work/_temp/c181ee07-b6b3-490d-93b3-fa1df3cfbc41' before making global git config changes
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4747321Z Adding repository directory to the temporary git global config as a safe directory
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4751065Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/roag/roag
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4787317Z Removing SSH command configuration
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4794187Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.4833432Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5142125Z Removing HTTP extra header
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5148627Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5190235Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5510899Z Removing includeIf entries pointing to credentials config files
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5521619Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5547277Z includeif.gitdir:/home/runner/work/roag/roag/.git.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5547790Z includeif.gitdir:/home/runner/work/roag/roag/.git/worktrees/*.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5548233Z includeif.gitdir:/github/workspace/.git.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5548626Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5557536Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/roag/roag/.git.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5581676Z /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5594300Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/roag/roag/.git.path /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5633764Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/roag/roag/.git/worktrees/*.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5658593Z /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5670231Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/roag/roag/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5707827Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5732893Z /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5741559Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5777752Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5801858Z /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5810597Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.5847569Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+web	Post Run actions/checkout@v6	2026-11-21T15:21:21.6133167Z Removing credentials config '/home/runner/work/_temp/git-credentials-c753e34d-90af-4507-ac41-e9206c962356.config'
+web	Complete job	﻿2026-11-21T15:21:21.6289856Z Cleaning up orphan processes
+web	Complete job	2026-11-21T15:21:21.6776745Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+publish	Set up job	﻿2026-11-21T15:21:29.6416259Z Current runner version: '2.338.2'
+publish	Set up job	2026-11-21T15:21:29.6445266Z ##[group]Runner Image Provisioner
+publish	Set up job	2026-11-21T15:21:29.6446190Z Hosted Compute Agent
+publish	Set up job	2026-11-21T15:21:29.6446878Z Version: 20261111.635
+publish	Set up job	2026-11-21T15:21:29.6447570Z Commit: b8a594ea514ff44cadb5342986c68b1eac6e22ed
+publish	Set up job	2026-11-21T15:21:29.6448394Z Build Date: 2026-11-11T01:49:01Z
+publish	Set up job	2026-11-21T15:21:29.6449110Z Worker ID: {1c418eb1-62cb-406d-9f05-c74b7ebac82f}
+publish	Set up job	2026-11-21T15:21:29.6449836Z Region: eastus
+publish	Set up job	2026-11-21T15:21:29.6450462Z Cloud: Azure
+publish	Set up job	2026-11-21T15:21:29.6451002Z ##[endgroup]
+publish	Set up job	2026-11-21T15:21:29.6452986Z ##[group]Operating System
+publish	Set up job	2026-11-21T15:21:29.6453773Z Ubuntu
+publish	Set up job	2026-11-21T15:21:29.6454297Z 26.04.1
+publish	Set up job	2026-11-21T15:21:29.6454833Z LTS
+publish	Set up job	2026-11-21T15:21:29.6455758Z ##[endgroup]
+publish	Set up job	2026-11-21T15:21:29.6456351Z ##[group]Runner Image
+publish	Set up job	2026-11-21T15:21:29.6457049Z Image: ubuntu-26.04
+publish	Set up job	2026-11-21T15:21:29.6457621Z Version: 20261116.202.1
+publish	Set up job	2026-11-21T15:21:29.6458733Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261116.202/images/ubuntu/Ubuntu2604-Readme.md
+publish	Set up job	2026-11-21T15:21:29.6460629Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261116.202
+publish	Set up job	2026-11-21T15:21:29.6461698Z ##[endgroup]
+publish	Set up job	2026-11-21T15:21:29.6462799Z ##[group]GITHUB_TOKEN Permissions
+publish	Set up job	2026-11-21T15:21:29.6465478Z Metadata: read
+publish	Set up job	2026-11-21T15:21:29.6466132Z Pages: write
+publish	Set up job	2026-11-21T15:21:29.6466782Z ##[endgroup]
+publish	Set up job	2026-11-21T15:21:29.6469186Z Secret source: Actions
+publish	Set up job	2026-11-21T15:21:29.6470294Z Cache mode: write
+publish	Set up job	2026-11-21T15:21:29.6471355Z Prepare workflow directory
+publish	Set up job	2026-11-21T15:21:29.6833405Z Prepare all required actions
+publish	Set up job	2026-11-21T15:21:29.6881957Z Getting action download info
+publish	Set up job	2026-11-21T15:21:29.8693892Z Download action repository 'actions/deploy-pages@v4' (SHA:d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e)
+publish	Set up job	2026-11-21T15:21:30.1917875Z Complete job name: publish
+publish	Publish tested static release	﻿2026-11-21T15:21:30.2890815Z ##[group]Run actions/deploy-pages@v4
+publish	Publish tested static release	2026-11-21T15:21:30.2891799Z with:
+publish	Publish tested static release	2026-11-21T15:21:30.2895764Z   token: ***
+publish	Publish tested static release	2026-11-21T15:21:30.2896221Z   timeout: 600000
+publish	Publish tested static release	2026-11-21T15:21:30.2896693Z   error_count: 10
+publish	Publish tested static release	2026-11-21T15:21:30.2897150Z   reporting_interval: 5000
+publish	Publish tested static release	2026-11-21T15:21:30.2897674Z   artifact_name: github-pages
+publish	Publish tested static release	2026-11-21T15:21:30.2898187Z   preview: false
+publish	Publish tested static release	2026-11-21T15:21:30.2898870Z ##[endgroup]
+publish	Publish tested static release	2026-11-21T15:21:30.7830563Z (node:2253) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+publish	Publish tested static release	2026-11-21T15:21:30.7832474Z (Use `node --trace-deprecation ...` to show where the warning was created)
+publish	Publish tested static release	2026-11-21T15:21:30.8572353Z Fetching artifact metadata for "github-pages" in this workflow run
+publish	Publish tested static release	2026-11-21T15:21:30.9173598Z Found 2 artifact(s)
+publish	Publish tested static release	2026-11-21T15:21:30.9235526Z Creating Pages deployment with payload:
+publish	Publish tested static release	2026-11-21T15:21:30.9236607Z {
+publish	Publish tested static release	2026-11-21T15:21:30.9237163Z 	"artifact_id": 14713370381,
+publish	Publish tested static release	2026-11-21T15:21:30.9237997Z 	"pages_build_version": "bb77ab99c969692fc429df32e20fd647508a5f2a",
+publish	Publish tested static release	2026-11-21T15:21:30.9286921Z 	"oidc_token": "***"
+publish	Publish tested static release	2026-11-21T15:21:30.9287680Z }
+publish	Publish tested static release	2026-11-21T15:21:31.5276547Z Created deployment for bb77ab99c969692fc429df32e20fd647508a5f2a, ID: bb77ab99c969692fc429df32e20fd647508a5f2a
+publish	Publish tested static release	2026-11-21T15:21:36.5291717Z Getting Pages deployment status...
+publish	Publish tested static release	2026-11-21T15:21:36.6621868Z Reported success!
+publish	Complete job	﻿2026-11-21T15:21:36.6978332Z Evaluate and set environment url
+publish	Complete job	2026-11-21T15:21:36.7004227Z Evaluated environment url: https://gabrielongzm.com/roag/settlement/
+publish	Complete job	2026-11-21T15:21:36.7005425Z Cleaning up orphan processes
+publish	Complete job	2026-11-21T15:21:36.7427862Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/deploy-pages@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

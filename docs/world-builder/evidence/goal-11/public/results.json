@@ -1,0 +1,113 @@
+{
+  "url": "https://gabrielongzm.com/roag/settlement/",
+  "mainJsSha256": "54f0e446143df6e969c2343ef01e6858cab23ab0a352f64ceee4d961e7076e73",
+  "input": "Playwright mouse/wheel/keyboard against actual release. Only the initial legacy compatibility segment injects the checked-in town fixture. The entered-seed progression, three founding towns, real production, shipments and project use normal paid rules, no developer injection or Free Build.",
+  "checks": [
+    "Existing single-town fixture retains terrain, identities, finances, calendar, incidents and history; exact original text backed up before regional write",
+    "Cancelling New World leaves the complete region unchanged",
+    "Normal entered-seed region reaches Village through paid cottages, a real Farm/Workshop/Market, actual work and social space; no Free Build or state injection",
+    "Paid founding creates a different Woodland town; its 50-coin allocation builds real housing, managed timber, a Lumber Camp, Market and Park",
+    "A real origin caravan collects cargo and exits before regional travel; paused reload preserves the in-transit record exactly",
+    "Caravan completes regional transit, legally enters the destination, serves the Market and pays the exporter once",
+    "Third settlement discovers real Pine Uplands terrain; three towns work and trade under a coherent shared calendar while another is viewed",
+    "Actual multi-town deliveries and produced/imported goods complete the optional Trade Network, then ordinary paid construction continues",
+    "Consumed delivered Wares produce a recorded regional merchant opportunity through the existing visitor system",
+    "Breaking a real road stops off-screen forestry and trade access; construction Undo reconnects it without rewinding regional time or other towns",
+    "A complete season advances while Pine Crossing is viewed; return preserves coherent calendars, identities and continuing background work",
+    "Developed three-town region exports and reloads exactly; pan/zoom and desktop resizing remain usable",
+    "Real regional file import preserves all towns, stocks, shipment lifecycle and relative queued-route validity"
+  ],
+  "shots": [
+    {
+      "name": "legacy-town-protected",
+      "seconds": 17.905
+    },
+    {
+      "name": "legacy-region",
+      "seconds": 20.561
+    },
+    {
+      "name": "normal-founding-neighbourhood",
+      "seconds": 45.203
+    },
+    {
+      "name": "normal-village",
+      "seconds": 51.498
+    },
+    {
+      "name": "founding-site-01",
+      "seconds": 55.969
+    },
+    {
+      "name": "woodland-forestry-town",
+      "seconds": 81.866
+    },
+    {
+      "name": "trade-established",
+      "seconds": 87.853
+    },
+    {
+      "name": "origin-caravan-dispatch",
+      "seconds": 100.11
+    },
+    {
+      "name": "caravan-on-regional-road",
+      "seconds": 109.264
+    },
+    {
+      "name": "first-delivery-benefit",
+      "seconds": 139.65
+    },
+    {
+      "name": "founding-site-03",
+      "seconds": 147.635
+    },
+    {
+      "name": "third-pine-settlement",
+      "seconds": 162.204
+    },
+    {
+      "name": "three-town-network",
+      "seconds": 166.816
+    },
+    {
+      "name": "background-progress",
+      "seconds": 224.638
+    },
+    {
+      "name": "trade-network-project",
+      "seconds": 231.656
+    },
+    {
+      "name": "actual-regional-mood-benefit",
+      "seconds": 234.332
+    },
+    {
+      "name": "regional-merchant-opportunity",
+      "seconds": 243.818
+    },
+    {
+      "name": "forestry-reconnected",
+      "seconds": 276.09
+    },
+    {
+      "name": "viewport-1280",
+      "seconds": 279.152
+    },
+    {
+      "name": "viewport-931",
+      "seconds": 281.362
+    },
+    {
+      "name": "viewport-1024",
+      "seconds": 284.174
+    },
+    {
+      "name": "seasonal-background-return",
+      "seconds": 360.399
+    }
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "elapsedSeconds": 387.34
+}

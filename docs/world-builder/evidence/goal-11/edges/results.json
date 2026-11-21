@@ -1,0 +1,16 @@
+{
+  "url": "http://127.0.0.1:34257/roag/settlement/",
+  "input": "Playwright real mouse/keyboard/wheel/file input; explicitly authored fixture checkpoints and one quota fault; no private profile",
+  "checks": [
+    "Disconnected destination causes physical return and one-time refund, not delivery",
+    "Undo restores the approach and subsequent actual deliveries resume",
+    "Standard trapped cargo follows timed loss/refund policy without exporter payment",
+    "Existing brigand incident actually closes regional connections; trained response or retreat reopens them with factual history",
+    "Completed Monument renders on its actual Hall and Regional Centre recognition persists",
+    "Salt Coast renders coherent shore, wet approaches, inlet and viable lane",
+    "Explicit regional-backup quota fault leaves exact legacy town bytes protected",
+    "Malformed cargo import is rejected before replacing the active region",
+    "Final release reloads the normal paid three-town export exactly and opens its map"
+  ],
+  "errors": []
+}

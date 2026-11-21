@@ -1,0 +1,8 @@
+00:00 +0: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/goal11_trade_test.dart
+00:00 +0: goods require actual work; Materials require maintained woodland and access
+00:01 +1: automatic trade reserves real goods, pays once at actual arrival and is zero-sum
+00:03 +2: transit save/reload continues the same cargo and outcome without extra payments
+00:04 +3: cancelling an uncollected reservation restores escrow and goods exactly once
+00:04 +4: Peaceful access interruption causes a real return journey, not a fictitious delivery
+00:05 +5: Standard prolonged obstruction loses cargo and refunds escrow without paying the exporter
+00:06 +6: All tests passed!

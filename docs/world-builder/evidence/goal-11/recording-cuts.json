@@ -1,0 +1,42 @@
+{
+  "source": "Actual public Chromium release capture, normal seed 202, no Free Build or model edits after New World creation",
+  "cutsSeconds": [
+    [
+      15.5,
+      21.5
+    ],
+    [
+      54,
+      61
+    ],
+    [
+      76.8,
+      82.8
+    ],
+    [
+      85.5,
+      89.8
+    ],
+    [
+      95.2,
+      101.1
+    ],
+    [
+      108.2,
+      111.8
+    ],
+    [
+      133,
+      141.5
+    ],
+    [
+      161,
+      168.2
+    ],
+    [
+      229.5,
+      239
+    ]
+  ],
+  "speed": "No retiming or synthetic frames; ordinary visible 4\u00d7/16\u00d7 game controls; silent recording"
+}

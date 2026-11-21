@@ -234,8 +234,9 @@ construction Undo stacks are session-local, not a new persisted time machine.
 
 ## Verification record (final audit in progress)
 
-The final app suite currently passes **242 tests**, followed by an additional
-Centre/Monument recognition regression. Formatting covers all 52 library/test
+The final app suite passes **243 tests in CI** (242 in the first full local run, followed by the new
+Centre/Monument regression and the five-test safety rerun). The final terminal
+return/loss checkpoints also pass exact round-trip and continuation assertions. Formatting covers all 52 library/test
 files. Asset checks pass 49 exact app crops / nine bodies × four palettes and
 599 original Lua bindings / 67 PNGs. Six storage-codec fault/round-trip checks pass.
 The root catalogue allow-list failure was reproduced before editing and remains
@@ -273,3 +274,47 @@ plus a separate native XTest run for genuine 110% browser zoom. Headless Dart
 fixtures are explicitly labelled; they are not manual play. Human enjoyment and
 balance remain unverified. Final performance, hosted URL and evidence results are
 added below after their actual runs.
+
+## Public release and actual browser evidence
+
+**Published and actually played:** [ROAG Settlement](https://gabrielongzm.com/roag/settlement/).
+[CI/publication 44918484126](https://github.com/gongahkia/roag/actions/runs/44918484126)
+passed tests, analysis, format, assets, six JavaScript storage checks, build and
+publication for `bb77ab99c969692fc429df32e20fd647508a5f2a`.
+The loaded public and local `main.dart.js` both hash to
+`54f0e446143df6e969c2343ef01e6858cab23ab0a352f64ceee4d961e7076e73`.
+The public browser completed the **entire 13-check paid journey**, including the
+previously split local checks, with no page errors or failed assets. No deployment
+blocker remains. The web text-fetch tool could not access this Flutter page;
+Chromium and direct asset download did, and are the actual verification evidence.
+
+Only the existing GitHub Pages workflow and the exact additional
+`release/settlement-goal-11` environment policy were used. Main and releases 07–10
+remain allowed. No Sites publication, new paid resource, credential exposure,
+reset, rebase or force push occurred. Automatic `work~` checkpoints were retained.
+
+- [Public journey checks and frame timeline](evidence/goal-11/public/results.json).
+- [Developed original town](evidence/goal-11/public/legacy-town-protected.png),
+  [founding](evidence/goal-11/public/founding-site-01.png),
+  [Woodland production](evidence/goal-11/public/woodland-forestry-town.png),
+  [three-town map](evidence/goal-11/public/three-town-network.png).
+- [Actual regional cargo](evidence/goal-11/public/caravan-on-regional-road.png),
+  [Market delivery](evidence/goal-11/public/first-delivery-benefit.png),
+  [Network project](evidence/goal-11/public/trade-network-project.png),
+  [real resident benefit](evidence/goal-11/public/actual-regional-mood-benefit.png).
+- [Seasonal return](evidence/goal-11/public/seasonal-background-return.png),
+  [unmodified paid-play export](evidence/goal-11/normal-developed-region.json).
+- [Nine fixture-assisted edge checks](evidence/goal-11/edges/results.json),
+  [actual regional interruption](evidence/goal-11/edges/actual-regional-interruption.png),
+  [recovery](evidence/goal-11/edges/actual-regional-recovery.png),
+  [Salt Coast](evidence/goal-11/edges/salt-coast.png),
+  [Monument/Centre](evidence/goal-11/edges/regional-centre-monument.png).
+- [Native XTest checks](evidence/goal-11/native/results.json),
+  [110% map](evidence/goal-11/native/native-regional-map-110.png),
+  [110% town switch](evidence/goal-11/native/native-town-switch-110.png).
+  Device-pixel ratio changed from 1 to 1.100000024, inner viewport from 1024×640
+  to 931×582; this was real browser zoom, separately from Playwright resizing.
+- [CI gates](evidence/goal-11/ci-gates.log),
+  [deployment](evidence/goal-11/deployment.json),
+  [local full suite](evidence/goal-11/tests-final.log),
+  [terminal cargo continuation](evidence/goal-11/trade-terminal-final.log).

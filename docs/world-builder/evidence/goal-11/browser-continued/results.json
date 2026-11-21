@@ -1,0 +1,31 @@
+{
+  "url": "http://127.0.0.1:34257/roag/settlement/",
+  "mainJsSha256": "54f0e446143df6e969c2343ef01e6858cab23ab0a352f64ceee4d961e7076e73",
+  "input": "Playwright mouse/wheel/keyboard against actual release. Continuation from the byte-identical normal paid-play checkpoint captured after forestry reconnection. No edits or developer state changes. Earlier normal journey supplies founding/trade/project footage.",
+  "checks": [
+    "A complete season advances while Pine Crossing is viewed; return preserves coherent calendars, identities and continuing background work",
+    "Developed three-town region exports and reloads exactly; pan/zoom and desktop resizing remain usable",
+    "Real regional file import preserves all towns, stocks, shipment lifecycle and relative queued-route validity"
+  ],
+  "shots": [
+    {
+      "name": "viewport-1280",
+      "seconds": 12.055
+    },
+    {
+      "name": "viewport-931",
+      "seconds": 15.279
+    },
+    {
+      "name": "viewport-1024",
+      "seconds": 18.318
+    },
+    {
+      "name": "seasonal-background-return",
+      "seconds": 103.056
+    }
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "elapsedSeconds": 127.59
+}

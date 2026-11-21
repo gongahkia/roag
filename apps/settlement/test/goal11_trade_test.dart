@@ -179,6 +179,7 @@ void main() {
     expect(r.towns[s.origin]!.exportsEarned, paid);
     expect(r.tradeRoutes[s.route]!.deliveries, 0);
     expect(s.finished, greaterThan(s.departed));
+    expect(SettlementRegion.decode(r.encode()).encode(), r.encode());
   });
   test('Standard prolonged obstruction loses cargo and refunds escrow without paying the exporter', () {
     final r = commerceFixture();
@@ -204,5 +205,12 @@ void main() {
     expect(r.towns[s.origin]!.exportsEarned, paid);
     expect(r.tradeRoutes[s.route]!.deliveries, 0);
     expect(s.reason, contains('refunded'));
+    final restored = SettlementRegion.decode(r.encode());
+    expect(restored.encode(), r.encode());
+    for (var i = 0; i < 200; i++) {
+      r.update(.05);
+      restored.update(.05);
+    }
+    expect(restored.encode(), r.encode());
   });
 }

@@ -1,0 +1,65 @@
+PASS Existing single-town fixture retains terrain, identities, finances, calendar, incidents and history; exact original text backed up before regional write
+PASS Cancelling New World leaves the complete region unchanged
+PASS Normal entered-seed region reaches Village through paid cottages, a real Farm/Workshop/Market, actual work and social space; no Free Build or state injection
+PASS Paid founding creates a different Woodland town; its 50-coin allocation builds real housing, managed timber, a Lumber Camp, Market and Park
+PASS A real origin caravan collects cargo and exits before regional travel; paused reload preserves the in-transit record exactly
+PASS Caravan completes regional transit, legally enters the destination, serves the Market and pays the exporter once
+PASS Third settlement discovers real Pine Uplands terrain; three towns work and trade under a coherent shared calendar while another is viewed
+PASS Actual multi-town deliveries and produced/imported goods complete the optional Trade Network, then ordinary paid construction continues
+PASS Consumed delivered Wares produce a recorded regional merchant opportunity through the existing visitor system
+PASS Breaking a real road stops off-screen forestry and trade access; construction Undo reconnects it without rewinding regional time or other towns
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Return to lane (H)', exact: true })[22m
+
+    at /home/gongahkia/coding/projects/roag/apps/settlement/tool/goal11_browser.cjs:77:301 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Return to lane (H)', exact: true })"
+  ],
+  name: 'TimeoutError'
+}
+- group "Settlement world":
+  - button "Market day · 3s left · inspect"
+- group "Settlement controls":
+  - button "Region · Alder Reach"
+  - text: "Regional map (W) Hamlet Productive work: 104.8 coins. Completed Market trade: 7.3 coins. Grant: 138.0 coins. No maintenance. Treasury: 252.0 coins Grant +20/day 3 people Base 50 · recent work +15 · leisure +15 · gathering +10. Persistent connection −20; missed work/leisure −10 each after grace. I inspects actual causes. Content 79"
+  - button "Day 8 · Day Summer · Windy"
+  - button "Inspect (I)"
+  - button "Mute"
+  - button "Landscape menu"
+  - button "Ⅱ"
+  - button "1×"
+  - button "2×"
+  - button "4×"
+  - button "Zoom out (−)"
+  - button "Return to lane (H) Return to lane (H)"
+  - button "Zoom in (+)"
+  - button "Undo" [disabled]
+  - button "Redo"
+  - group:
+    - text: Remove Leave a little history behind. Drag to build · B finds tools Space + drag to pan · Scroll world to zoom Construction Homes
+    - button "1 Cottage · 5.0 coins A cottage beside a connected path."
+    - text: Work
+    - button "4 Farm · 8.0 coins 2 work positions · earn coins while working."
+    - button "6 Workshop · 16.0 coins 1 specialised job · 0.4 coin/s while working."
+    - button "Lumber Camp · 14.0 coins 1 forestry job · needs woodland within 3 cells · produces regional Materials through actual work."
+    - button "7 Market · 14.0 coins 1 vendor + 3 customers · staffed visits earn trade income."
+    - button "Inn · 16.0 coins 1 innkeeper + 4 covered social places · visitors can rest here · 16 coins."
+    - text: Preparedness
+    - button "Firehouse · 18.0 coins 2 automatic responder jobs · real road travel to fires · 18 coins."
+    - button "Watchpost · 14.0 coins 1 guard job · reachable wildlife response within 10 road-cost units · 14 coins."
+    - button "Refuge · 10.0 coins 8 temporary shelter places · real evacuation, no permanent housing · 10 coins."
+    - button "Repair · 1–5 coins/building Repair damaged, safe buildings · 1–5 coins each · drag for one transaction."
+    - text: Social
+    - button "5 Park · 6.0 coins 6 visitor spaces · social visits improve mood; evening gatherings."
+    - button "8 Community Hall · 12.0 coins 8 covered visitor spaces · preferred in rain."
+    - text: Roads
+    - button "2 Path · Free Extend the lane, one cell at a time."
+    - button "9 Stone Road · 2.0 coins 18% quicker travel · stays quick in rain · 2 coins/cell."
+    - button "0 Garden Path · 1.0 coins Normal pace · +3 mood after traversal, once per day · 1 coin/cell."
+    - text: Landscape
+    - button "Clear · 1.0 coins Clear trees or prepare marsh · 1 coin/cell · no road needed."
+    - button "Plant · 1.0 coins Plant a tree on empty ground · 1 coin/cell · no automatic benefit."
+    - button "Bridge · 3.0 coins/water cell Drag bank to bank, straight across 1–6 water cells · 3 coins/water cell."
+    - text: Manage
+    - button "3 Remove · Free Leave a little history behind."

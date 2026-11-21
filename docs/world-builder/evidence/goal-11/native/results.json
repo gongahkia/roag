@@ -1,0 +1,21 @@
+{
+  "input": "Native XTest pointer and keyboard in isolated headful Chromium/Xvfb. CDP navigation, initial public fixture and read-only observation/accessibility only.",
+  "original": {
+    "ratio": 1,
+    "width": 1024,
+    "height": 640
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 931,
+    "height": 582
+  },
+  "checks": [
+    "Real 110% browser zoom, not CSS resize",
+    "Native W opens regional map",
+    "Native mouse selects and visits another town",
+    "Native pan/zoom/home and Escape",
+    "Switch preserves every paused Colony state and clock",
+    "Ctrl+0 restores browser zoom"
+  ]
+}
