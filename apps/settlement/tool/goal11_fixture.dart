@@ -69,6 +69,14 @@ void main(List<String> args) {
 
   final trade = tradingRegion();
   save('three-biome-trade', trade);
+  final landmark = SettlementRegion.decode(trade.encode());
+  runUntil(
+    landmark,
+    () => landmark.projectIssue('landmark', 'site-00') == null,
+  );
+  landmark.completeProject('landmark', 'site-00');
+  runUntil(landmark, () => landmark.capital.stage == DevelopmentStage.centre);
+  save('landmark-centre', landmark);
   runUntil(
     trade,
     () => trade.shipments.values.any((s) => s.state == ShipmentState.unloading),

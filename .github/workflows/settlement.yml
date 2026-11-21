@@ -1,7 +1,7 @@
 name: Settlement browser release
 on:
   push:
-    branches: [main, release/settlement-goal-07, release/settlement-goal-08, release/settlement-goal-09, release/settlement-goal-10]
+    branches: [main, release/settlement-goal-07, release/settlement-goal-08, release/settlement-goal-09, release/settlement-goal-10, release/settlement-goal-11]
     paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
   pull_request:
     paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
@@ -30,6 +30,7 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
+      - run: node tool/storage_codec_test.cjs
       - name: Build self-contained Pages release
         run: bash tool/release.sh '/${{ github.event.repository.name }}/settlement/'
       - uses: actions/upload-artifact@v4

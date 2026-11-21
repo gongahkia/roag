@@ -29,6 +29,7 @@ void main(List<String> args) {
     }
     r.profile = true;
     final samples = <int>[];
+    final activePopulation = r.active.colony.people.length;
     for (var i = 0; i < 2000; i++) {
       final w = Stopwatch()..start();
       r.update(.05);
@@ -54,10 +55,11 @@ void main(List<String> args) {
     for (var i = 0; i < 20000; i++) {
       r.update(.05);
     }
-    if (!r.towns.values.every((t) => t.colony.clock == r.clock))
+    if (!r.towns.values.every((t) => t.colony.clock == r.clock)) {
       throw StateError('calendar drift');
+    }
     result[name] = {
-      'population': r.active.colony.people.length,
+      'population': activePopulation,
       'totalPopulation': r.towns.values.fold<int>(
         0,
         (n, t) => n + t.colony.people.length,

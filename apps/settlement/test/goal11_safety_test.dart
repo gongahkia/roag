@@ -5,8 +5,37 @@ import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/region.dart';
 
 import 'goal11_trade_test.dart' show commerceFixture, runUntil;
+import '../tool/goal11_fixture.dart' show tradingRegion;
 
 void main() {
+  test('Centre needs two reliable partners, real protection and a standing landmark; recognition latches', () {
+    final r = tradingRegion();
+    expect(r.capital.stage, isNot(DevelopmentStage.centre));
+    runUntil(
+      r,
+      () => r.projectIssue('landmark', 'site-00') == null,
+      limit: 1500,
+    );
+    expect(r.completeProject('landmark', 'site-00'), isTrue);
+    runUntil(r, () => r.capital.stage == DevelopmentStage.centre);
+    expect(r.capital.protected, isTrue);
+    expect(r.reliablePartners('site-00'), 2);
+    final hall = r.capital.colony.places(Place.hall).first.value;
+    final c = r.capital.colony;
+    c.session.beginStroke(Tool.remove, hall);
+    c.session.stroke!.paintTo(hall);
+    expect(c.session.finishStroke(), isTrue);
+    c.reconcile(c.session.world);
+    for (var i = 0; i < 40; i++) {
+      r.update(.05);
+    }
+    expect(r.landmarkStanding(r.capital), isFalse);
+    expect(r.capital.stage, DevelopmentStage.centre);
+    expect(
+      SettlementRegion.decode(r.encode()).capital.stage,
+      DevelopmentStage.centre,
+    );
+  });
   test('forestry uses reachable local land, including legacy oak, never across water or rock', () {
     Landscape patch(Terrain barrier, {bool oak = false}) =>
         Landscape(202, 7, 3, [
