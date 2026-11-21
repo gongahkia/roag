@@ -738,7 +738,7 @@ int nearbyTimber(Landscape world, Cell cell) {
       if (!world.contains(at) || !seen.add(at)) continue;
       final lot = world.at(at);
       if (lot.terrain == Terrain.rock ||
-          lot.terrain == Terrain.water && !world.roadCell(at) ||
+          lot.terrain == Terrain.water ||
           lot.cottage != null ||
           lot.place != null) {
         continue;

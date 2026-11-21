@@ -125,6 +125,8 @@ class SettlementRegion {
   String activeId;
   int nextFact = 1;
   double nextRegionalAt = 0;
+  bool profile = false;
+  int activeModelUs = 0, backgroundModelUs = 0, tradeUs = 0, schedulingUs = 0;
   SettlementRegion._(
     this.geography,
     this.towns,
@@ -211,13 +213,27 @@ class SettlementRegion {
     while (first.remainder >= .05 - 1e-9) {
       first.remainder = math.max(0, first.remainder - .05);
       for (final town in towns.values) {
+        final watch = profile ? (Stopwatch()..start()) : null;
         town.colony.advanceRegionalTick();
+        if (watch != null) {
+          if (town.siteId == activeId) {
+            activeModelUs += watch.elapsedMicroseconds;
+          } else {
+            backgroundModelUs += watch.elapsedMicroseconds;
+          }
+        }
       }
+      final watch = profile ? (Stopwatch()..start()) : null;
       _tradeTick(.05);
+      if (watch != null) {
+        tradeUs += watch.elapsedMicroseconds;
+        watch.reset();
+      }
       if (clock + 1e-9 >= nextRegionalAt) {
         nextRegionalAt = clock + 1;
         _progress();
       }
+      if (watch != null) schedulingUs += watch.elapsedMicroseconds;
     }
     if (first.remainder < 1e-9) first.remainder = 0;
     for (final town in towns.values) {

@@ -1,0 +1,17 @@
+const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:34257/roag/settlement/?profile=1',dir=process.env.SETTLEMENT_FIXTURE_DIR||'/var/tmp/roag-goal11/fixtures',output=process.argv[2]||'/var/tmp/roag-goal11/performance-browser.json';
+const stats=a=>{const s=[...a].sort((a,b)=>a-b);return{mean:s.reduce((a,b)=>a+b,0)/s.length,p95:s[Math.floor(s.length*.95)],max:s.at(-1)}};
+let browser;
+(async()=>{
+ browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox']});const results=[];
+ for(const name of ['single-scale-85','single-scale-500','three-biome-trade','region-scale-85','region-scale-500']){
+  const c=await browser.newContext({viewport:{width:1024,height:640}}),text=fs.readFileSync(path.join(dir,name+'.json'),'utf8');
+  await c.addInitScript(text=>{if(!localStorage.getItem('roag.settlement.landscape.v1'))localStorage.setItem('roag.settlement.landscape.v1',text)},text);
+  const p=await c.newPage();await p.goto(url);await p.locator('#loading').waitFor({state:'detached'});await p.locator('flt-semantics-placeholder').press('Enter');await p.getByRole('button',{name:'1×',exact:true}).click();await p.waitForTimeout(2000);
+  const sample=await p.evaluate(async()=>{const start=JSON.parse(JSON.stringify(window.settlementMetrics)),frames=[];let prev=performance.now(),end=prev+16000;await new Promise(done=>{function f(t){frames.push(t-prev);prev=t;if(t<end)requestAnimationFrame(f);else done()}requestAnimationFrame(f)});const m=JSON.parse(JSON.stringify(window.settlementMetrics)),n=m.modelCalls-start.modelCalls;return{frames,model:m.modelMicros.slice(-n),presentation:m.presentationMicros.slice(-n),start,metrics:m}});
+  await p.getByRole('button',{name:'Ⅱ',exact:true}).click();const storage=await p.evaluate(()=>{const w=performance.now(),s=window.settlementPlatform.load(),loadMs=performance.now()-w,j=JSON.parse(s);return{rawBytes:localStorage.getItem('roag.settlement.landscape.v1').length,exportBytes:s.length,loadMs,clocks:j.towns.map(t=>t.colony.colony.clock)}});
+  assert(storage.clocks.every(t=>t===storage.clocks[0]));const calls=sample.metrics.modelCalls-sample.start.modelCalls,split={};for(const k of ['activeModelUs','backgroundModelUs','tradeUs','regionalSchedulingUs'])split[k+'PerFrame']=(sample.metrics[k]-sample.start[k])/calls;
+  const r={name,frameMs:stats(sample.frames),modelUs:stats(sample.model),presentationUs:stats(sample.presentation),advanced:sample.metrics.clock-sample.start.clock,...split,storage,metrics:sample.metrics};delete r.metrics.modelMicros;delete r.metrics.presentationMicros;results.push(r);console.log('MEASURED',name,JSON.stringify({...r,metrics:undefined}));await c.close();
+ }
+ await browser.close();fs.writeFileSync(output,JSON.stringify({url,browser:'Chromium 155 / SwiftShader, shared Linux host',sampling:'16 wall-seconds at 1×, no concurrent owned builds/browsers; internal timings are not physical input/display latency',results},null,2));
+})().catch(async e=>{console.error(e);if(browser)await browser.close();process.exitCode=1});

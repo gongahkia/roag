@@ -57,6 +57,16 @@ class SettlementGame extends FlameGame {
     'planned': colony.planned,
     'discardedPlans': colony.discardedPlans,
     'navigationRevision': colony.navigation.revision,
+    if (region != null) ...{
+      'towns': region!.towns.length,
+      'backgroundPopulation': region!.towns.values
+          .where((t) => t.siteId != region!.activeId)
+          .fold<int>(0, (n, t) => n + t.colony.people.length),
+      'activeModelUs': region!.activeModelUs,
+      'backgroundModelUs': region!.backgroundModelUs,
+      'tradeUs': region!.tradeUs,
+      'regionalSchedulingUs': region!.schedulingUs,
+    },
   };
   SettlementGame(
     this.colony,
@@ -239,6 +249,7 @@ class SettlementGame extends FlameGame {
       if (region == null) {
         residents.update(dt);
       } else {
+        region!.profile = profile;
         region!.update(dt);
       }
       if (watch != null) {
