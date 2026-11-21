@@ -255,6 +255,7 @@ class BuildArt {
     );
     if ([
       Place.workshop,
+      Place.lumberCamp,
       Place.market,
       Place.hall,
       Place.firehouse,
@@ -263,7 +264,7 @@ class BuildArt {
     ].contains(lot.place)) {
       frame(
         canvas,
-        lot.place!.name,
+        lot.place == Place.lumberCamp ? 'workshop' : lot.place!.name,
         c,
         lot.place == Place.firehouse
             ? const Color(0xffd49d82)
@@ -278,6 +279,19 @@ class BuildArt {
             : const Color(0xffc4b0ca),
         opacity: opacity,
       );
+      if (lot.place == Place.lumberCamp) {
+        art['oak']?.render(
+          canvas,
+          position: Vector2(x + 6, y - 1),
+          size: Vector2.all(7),
+          overridePaint: Paint()
+            ..filterQuality = FilterQuality.none
+            ..colorFilter = ColorFilter.mode(
+              const Color(0xffa4b878).withValues(alpha: opacity),
+              BlendMode.srcIn,
+            ),
+        );
+      }
       if (lot.place == Place.market) {
         for (var i = 0; i < 4; i++) {
           canvas.drawRect(
@@ -365,6 +379,7 @@ class BuildArt {
     Tool.garden => 'vegetables',
     Tool.green => 'oak',
     Tool.workshop => 'workshop',
+    Tool.lumberCamp => 'workshop',
     Tool.market => 'market',
     Tool.hall => 'hall',
     Tool.firehouse => 'firehouse',

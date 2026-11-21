@@ -15,6 +15,7 @@ FRAMES = {
     'firehouse': (6,53), 'watchpost': (5,27), 'refuge-gate': (5,30), 'inn': (33,3), 'flame': (42,0), 'rabbit': (16,3),
     'grass0': (5, 15), 'grass1': (5, 16), 'dirt': (5, 1),
     'oak': (8, 1), 'vegetables': (24, 5),
+    'spruce': (8, 3), 'regional-monument': (25, 35),
     'cottage0': (33, 0), 'cottage1': (33, 1),
     'resident': (0, 104),
     'imp': (20, 104), 'djinn': (18, 104),

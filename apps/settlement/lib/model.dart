@@ -24,7 +24,8 @@ enum Tool {
   watchpost,
   refuge,
   inn,
-  repair;
+  repair,
+  lumberCamp;
 
   String get label => switch (this) {
     cottage => 'Cottage',
@@ -45,6 +46,7 @@ enum Tool {
     refuge => 'Refuge',
     inn => 'Inn',
     repair => 'Repair',
+    lumberCamp => 'Lumber Camp',
   };
   bool get isLandscape => this == clear || this == plant || this == bridge;
   bool get isRoad => this == path || this == stoneRoad || this == gardenPath;
@@ -63,6 +65,7 @@ enum Tool {
     watchpost => Place.watchpost,
     refuge => Place.refuge,
     inn => Place.inn,
+    lumberCamp => Place.lumberCamp,
     _ => null,
   };
   String get purpose => switch (this) {
@@ -89,6 +92,7 @@ enum Tool {
     refuge => '8 temporary shelter places · real evacuation, no permanent housing · 10 coins.',
     inn => '1 innkeeper + 4 covered social places · visitors can rest here · 16 coins.',
     repair => 'Repair damaged, safe buildings · 1–5 coins each · drag for one transaction.',
+    lumberCamp => '1 forestry job · needs woodland within 3 cells · produces regional Materials through actual work.',
   };
 }
 
@@ -103,7 +107,8 @@ enum Place {
   firehouse,
   watchpost,
   refuge,
-  inn;
+  inn,
+  lumberCamp;
 
   String get label => switch (this) {
     garden => 'Farm',
@@ -115,10 +120,11 @@ enum Place {
     watchpost => 'Watchpost',
     refuge => 'Refuge',
     inn => 'Inn',
+    lumberCamp => 'Lumber Camp',
   };
   int get workCapacity => switch (this) {
     garden => Rules.gardenCapacity,
-    workshop => 1,
+    workshop || lumberCamp => 1,
     market || watchpost || inn => 1,
     firehouse => 2,
     _ => 0,
@@ -135,6 +141,7 @@ enum Place {
     workshop => 400,
     market || firehouse || watchpost => 100,
     inn => 150,
+    lumberCamp => 200,
     _ => 0,
   };
   bool get protective => this == firehouse || this == watchpost;
@@ -721,6 +728,18 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
   );
 }
 
+int nearbyTimber(Landscape world, Cell cell) {
+  var count = 0;
+  for (var dy = -3; dy <= 3; dy++) {
+    for (var dx = -3; dx <= 3; dx++) {
+      if (dx.abs() + dy.abs() > 3) continue;
+      final at = Cell(cell.x + dx, cell.y + dy);
+      if (world.contains(at) && world.at(at).terrain == Terrain.forest) count++;
+    }
+  }
+  return count;
+}
+
 Placement evaluate(
   Landscape world,
   Tool tool,
@@ -863,6 +882,9 @@ Placement evaluate(
   }
   if (world.occupied(c)) return no('This ground is occupied.');
   if (old.scenery == Scenery.oak) return no('A tree occupies this ground.');
+  if (tool == Tool.lumberCamp && nearbyTimber(world, c) == 0) {
+    return no('A Lumber Camp needs standing woodland within 3 cells.');
+  }
   final access = world.access(c);
   if (access == null) {
     return no(

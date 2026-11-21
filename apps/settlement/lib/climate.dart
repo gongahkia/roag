@@ -100,7 +100,14 @@ class Climate {
   List<int> weightsFor(Season season) => [
     for (var i = 0; i < 4; i++)
       weights[season]![i] +
-          (i == 1 && environment == EnvironmentPreset.river ? 5 : 0),
+          (i == 1 && environment == EnvironmentPreset.river ? 5 : 0) +
+          (environment == EnvironmentPreset.pineUplands &&
+                  (i == 3 && season == Season.winter || i == 2)
+              ? 15
+              : 0) +
+          (environment == EnvironmentPreset.saltCoast && (i == 1 || i == 2)
+              ? 15
+              : 0),
   ];
   WeatherKind scheduled(int absoluteDay) {
     if (fixedWeather != null) return fixedWeather!;

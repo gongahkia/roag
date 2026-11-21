@@ -23,6 +23,7 @@ abstract final class Rules {
     'garden': 8000,
     'green': 6000,
     'workshop': 16000,
+    'lumberCamp': 14000,
     'market': 14000,
     'hall': 12000,
     'stoneRoad': 2000,

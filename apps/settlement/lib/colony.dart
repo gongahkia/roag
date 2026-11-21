@@ -49,13 +49,21 @@ class PlanningRequest {
 }
 
 class Colony extends Residents {
+  void Function(String building, Place kind, double effectiveSeconds)?
+  onProductiveWork;
+  int Function()? regionalMood;
+  void Function(String shipment, bool exporting)? onFreightServed;
+  void Function(String shipment, bool exporting, bool served)? onFreightExit;
   ScenarioKind scenario = ScenarioKind.free;
   final Set<int> scenarioCompleted = {};
   final List<StoryFact> stories = [];
   int nextStoryId = 1, incidentSpent = 0;
   double rainExposure = 0, nextStoryTick = 0;
   double get marshTravel =>
-      world.generation?.preset == EnvironmentPreset.wetlands &&
+      [
+            EnvironmentPreset.wetlands,
+            EnvironmentPreset.saltCoast,
+          ].contains(world.generation?.preset) &&
           rainExposure >= 20
       ? 2
       : 1.5;
@@ -580,6 +588,10 @@ class Colony extends Residents {
   }
 
   bool _assign(Resident r) {
+    if (r.workId != null && !workSourceAvailable(r.workId)) {
+      r.workId = null;
+      _countsDirty = true;
+    }
     if (r.workId != null) {
       final access = placeAccess(r.workId);
       if (access == null || route(r.cell, access) == null) {
@@ -592,6 +604,7 @@ class Colony extends Residents {
     var reachable = false;
     final candidates = <(String, double)>[];
     for (final p in workplaces) {
+      if (!workSourceAvailable(p.key)) continue;
       final access = placeAccess(p.key);
       if (access == null) continue;
       final distance = travelDistance(r.cell, access);
@@ -630,6 +643,22 @@ class Colony extends Residents {
     r.workIssue = Reason.none;
     return true;
   }
+
+  Landscape? _timberWorld;
+  final Map<Cell, int> _timber = {};
+  int timberCount(String id) {
+    if (!identical(_timberWorld, world)) {
+      _timberWorld = world;
+      _timber.clear();
+    }
+    final cell = world.places[id];
+    return cell == null
+        ? 0
+        : _timber.putIfAbsent(cell, () => nearbyTimber(world, cell));
+  }
+
+  bool workSourceAvailable(String? id) =>
+      kind(id) != Place.lumberCamp || id != null && timberCount(id) > 0;
 
   bool shopAvailable(Resident r) => places(Place.market).any(
     (p) =>
@@ -949,6 +978,7 @@ class Colony extends Residents {
       'Garden path': r.gardenDay == day ? Rules.gardenPathBenefit : 0,
       'Gathering': r.eventBenefitUntil > clock ? Rules.gatheringBenefit : 0,
       if (r.visitorBenefitUntil > clock) 'Traveller story': 4,
+      if ((regionalMood?.call() ?? 0) > 0) 'Regional supply': regionalMood!(),
       if (requests.mood(r.homeId, clock) > 0)
         'Kept promise': Rules.requestBenefit,
       if (r.civicBenefitUntil > clock) 'Market hospitality': Rules.civicBenefit,
@@ -1074,6 +1104,9 @@ class Colony extends Residents {
     if (remainder < 1e-9) remainder = 0;
   }
 
+  // the region owns elapsed time and calls this once per shared fixed tick.
+  void advanceRegionalTick() => _step(.05);
+
   void _step(double dt) {
     clock += dt;
     _worldBoundary(dt);
@@ -1104,7 +1137,8 @@ class Colony extends Residents {
         continue;
       }
       if (r.activity == Activity.working) {
-        if (!connected(r) ||
+        if (!workSourceAvailable(r.workId) ||
+            !connected(r) ||
             placeAccess(r.workId) != r.cell ||
             workers(r.workId!) > (kind(r.workId)?.workCapacity ?? 0)) {
           r.workIssue = Reason.workCut;
@@ -1129,6 +1163,13 @@ class Colony extends Residents {
               (status(r.workId)?.output ?? 1),
         );
         session.condition(r.workId!).productive += productive;
+        if (productive > 0) {
+          onProductiveWork?.call(
+            r.workId!,
+            kind(r.workId)!,
+            productive * bonus * (status(r.workId)?.output ?? 1),
+          );
+        }
         if (kind(r.workId)!.protective && productive > 0) {
           r.dutyAt = clock;
           r.dutyBuilding = r.workId;

@@ -179,6 +179,38 @@
       "file": "images/vegetables.png",
       "sha256": "22cc0a66169600be44668812c97dfe84a77087fc58dcb128c9979ac909f51667"
     },
+    "spruce": {
+      "id": "urizen-onebit-r08-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        105,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/spruce.png",
+      "sha256": "92206d67ee70c35d3c7db607cf835b7b7e2cc9e54bb1bea91c877d66945cbce3"
+    },
+    "regional-monument": {
+      "id": "urizen-onebit-r25-c035",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        456,
+        326,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/regional-monument.png",
+      "sha256": "32c9fdfb3fdfa69c4121cf5b9352de12bb07adc684f24c5dd6230541f8e8033b"
+    },
     "cottage0": {
       "id": "urizen-onebit-r33-c000",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",

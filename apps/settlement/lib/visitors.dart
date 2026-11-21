@@ -18,6 +18,8 @@ class Visit {
   double progress = 0, restProgress = 0;
   String? inn;
   bool restAttempted = false, rested = false;
+  String? freight;
+  bool exporting = false;
   final Map<String, double> attendees = {};
   final Set<String> awarded = {};
   Visit(this.id, this.role, this.venue, this.starts, Cell entry)
@@ -29,7 +31,15 @@ class Visit {
       ..trait = role == VisitorRole.merchant ? Trait.brisk : Trait.sociable
       ..arrived = true;
   }
-  String get state => inn != null && !rested
+  String get state => freight != null
+      ? leaving
+            ? 'Regional caravan · leaving by road'
+            : actor.activity == Activity.socialising
+            ? exporting
+                  ? 'Collecting regional cargo'
+                  : 'Delivering regional cargo'
+            : 'Regional caravan · waiting for Market access'
+      : inn != null && !rested
       ? actor.activity == Activity.socialising
             ? 'Resting at the Inn'
             : actor.moving
@@ -72,17 +82,87 @@ class VisitMemory {
 }
 
 extension LivingVisitors on Colony {
+  String? startFreight(
+    String shipment,
+    String venue, {
+    required bool exporting,
+  }) {
+    if (visits.length >= 4 ||
+        kind(venue) != Place.market ||
+        visits.values.any((v) => v.freight == shipment)) {
+      return null;
+    }
+    final visit =
+        Visit(
+            'visit-${nextVisitId++}',
+            VisitorRole.merchant,
+            venue,
+            clock,
+            world.arrival,
+          )
+          ..freight = shipment
+          ..exporting = exporting;
+    visit.actor.destination = venue;
+    visits[visit.id] = visit;
+    plan(visit.actor);
+    return visit.id;
+  }
+
+  void retireFreight(String shipment) {
+    for (final v in visits.values.where((v) => v.freight == shipment)) {
+      v.leaving = true;
+      if (v.actor.moving) {
+        v.actor.route.removeRange(1, v.actor.route.length);
+        v.actor.replanAfterEdge = true;
+      } else {
+        plan(v.actor);
+      }
+    }
+  }
+
+  void _freightExit(Visit v) {
+    if (visits.remove(v.id) != null) {
+      onFreightExit?.call(v.freight!, v.exporting, v.completed);
+    }
+  }
+
+  void _planFreight(Visit v) {
+    final r = v.actor;
+    r.replanAfterEdge = false;
+    if (!_visitorVenue(v)) v.leaving = true;
+    if (v.leaving) {
+      r.destination = null;
+      if (r.cell == world.arrival &&
+          (r.x - r.cell.x - .5).abs() + (r.y - r.cell.y - .5).abs() < .01) {
+        _freightExit(v);
+        return;
+      }
+      if (go(r, world.arrival, Activity.returning)) return;
+    } else {
+      r.destination = v.venue;
+      final access = placeAccess(v.venue);
+      if (access != null && go(r, access, Activity.socialTravel)) return;
+    }
+    r.route.clear();
+    r.activity = Activity.waiting;
+    r.timer = Rules.searchInterval;
+  }
+
   bool _visitorVenue(Visit v) => v.role == VisitorRole.merchant
       ? kind(v.venue) == Place.market
       : [Place.green, Place.hall].contains(kind(v.venue));
   void _visitorBoundary() {
     if (clock + 1e-9 < nextVisitorAt) return;
     nextVisitorAt = clock + 15;
-    if (visits.length >= 2 || phase == 'Night') return;
+    if (visits.length >= 4 ||
+        visits.values.where((v) => v.freight == null).length >= 2 ||
+        phase == 'Night') {
+      return;
+    }
     final options = <(VisitorRole, String)>[];
     for (final role in VisitorRole.values) {
       if ((visitorCooldown[role] ?? 0) > clock ||
-          visits.values.any((v) => v.role == role)) {
+          visits.values.any((v) => v.freight == null && v.role == role)) {
         continue;
       }
       for (final p in venues) {
@@ -122,6 +202,10 @@ extension LivingVisitors on Colony {
   }
 
   void _planVisitor(Visit v) {
+    if (v.freight != null) {
+      _planFreight(v);
+      return;
+    }
     final r = v.actor;
     r.replanAfterEdge = false;
     if (!_visitorVenue(v) || clock - v.starts > Rules.day) v.leaving = true;
@@ -177,6 +261,10 @@ extension LivingVisitors on Colony {
 
   void _visitorReached(Visit v) {
     final r = v.actor;
+    if (v.freight != null && v.leaving && r.cell == world.arrival) {
+      _freightExit(v);
+      return;
+    }
     if (v.inn != null && !v.rested) {
       if (placeAccess(v.inn) == r.cell &&
           staffed(v.inn) &&
@@ -252,6 +340,34 @@ extension LivingVisitors on Colony {
         advanceTravel(r, dt);
       }
       if (!visits.containsKey(v.id) || r.moving) continue;
+      if (v.freight != null) {
+        if (r.activity == Activity.socialising) {
+          if (v.leaving ||
+              !_visitorVenue(v) ||
+              placeAccess(v.venue) != r.cell ||
+              !staffed(v.venue)) {
+            r.activity = Activity.waiting;
+            r.timer = 0;
+            plan(r);
+          } else if (wasActive) {
+            v.progress = math.min(2, v.progress + dt);
+            if (v.progress >= 2 - 1e-9 && !v.completed) {
+              v.completed = true;
+              v.leaving = true;
+              session.condition(v.venue).uses++;
+              onFreightServed?.call(v.freight!, v.exporting);
+              plan(r);
+            }
+          }
+        } else {
+          r.timer -= dt;
+          if (r.timer <= 0) {
+            r.timer = Rules.searchInterval;
+            plan(r);
+          }
+        }
+        continue;
+      }
       if (r.activity == Activity.socialising) {
         if (v.inn != null && !v.rested) {
           if (placeAccess(v.inn) != r.cell || !staffed(v.inn)) {
@@ -366,6 +482,9 @@ extension LivingVisitors on Colony {
   }
 
   String visitorStory(Visit v) {
+    if (v.freight != null) {
+      return 'Regional shipment ${v.freight}. ${v.exporting ? 'I collect reserved goods from this staffed Market, then leave by the real arrival road.' : 'Goods count as delivered only after I reach this staffed Market and unload for two seconds.'} This is not a second ordinary merchant reward. ${v.state}.';
+    }
     if (v.inn != null && !v.rested) {
       return 'Our main visit is complete. I am following the roads to a staffed Inn, then resting six seconds before departure. A completed rest brings my next opportunity 30 seconds closer.';
     }
@@ -409,6 +528,8 @@ extension LivingVisitors on Colony {
           'completed': v.completed,
           'encore': v.encore,
           'progress': v.progress,
+          if (v.freight != null) 'freight': v.freight,
+          if (v.freight != null) 'exporting': v.exporting,
           'inn': v.inn,
           'restAttempted': v.restAttempted,
           'rested': v.rested,
@@ -477,7 +598,7 @@ extension LivingVisitors on Colony {
     if (history is! List ||
         history.length > 24 ||
         active is! List ||
-        active.length > 2) {
+        active.length > 4) {
       bad();
     }
     final historyIds = <String>{};
@@ -500,13 +621,21 @@ extension LivingVisitors on Colony {
     for (final row in active) {
       if (row is! Map || row['actor'] is! Map) bad();
       final vid = id(row['id']), type = role(row['role']);
+      final freight = row['freight'];
+      if (freight != null &&
+          (freight is! String ||
+              !RegExp(r'^shipment-[1-9][0-9]*$').hasMatch(freight) ||
+              type != VisitorRole.merchant ||
+              row['exporting'] is! bool)) {
+        bad();
+      }
       final serial = int.tryParse(vid.replaceFirst('visit-', ''));
       if (serial == null ||
           vid != 'visit-$serial' ||
           serial < 1 ||
           serial >= nextVisitId ||
           visits.containsKey(vid) ||
-          !roles.add(type)) {
+          freight == null && !roles.add(type)) {
         bad();
       }
       final v = Visit(
@@ -517,11 +646,13 @@ extension LivingVisitors on Colony {
         world.arrival,
       );
       v
+        ..freight = freight
+        ..exporting = freight == null ? false : flag(row, 'exporting')
         ..leaving = flag(row, 'leaving')
         ..completed = flag(row, 'completed')
         ..encore = flag(row, 'encore')
         ..progress = numAt(row, 'progress', 0, 24.05);
-      if (v.completed != historyIds.contains(vid) ||
+      if (v.freight == null && v.completed != historyIds.contains(vid) ||
           v.completed && !v.leaving ||
           !v.leaving && kind(v.venue) == null ||
           type == VisitorRole.merchant && (v.encore || v.progress > 6.05)) {

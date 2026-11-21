@@ -95,6 +95,8 @@ class SettlementGame extends FlameGame {
       'grass1',
       'dirt',
       'oak',
+      'spruce',
+      'regional-monument',
       'vegetables',
       'workshop',
       'market',
@@ -832,7 +834,11 @@ class _LandscapeLayer extends Component {
       } else {
         frame(
           canvas,
-          game.colony.season == Season.winter ? 'oak-winter' : 'oak',
+          scene.generation?.preset == EnvironmentPreset.pineUplands
+              ? 'spruce'
+              : game.colony.season == Season.winter
+              ? 'oak-winter'
+              : 'oak',
           c,
           game.colony.season == Season.autumn
               ? const Color(0xffad874f)

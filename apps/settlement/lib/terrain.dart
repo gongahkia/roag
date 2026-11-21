@@ -73,6 +73,20 @@ enum EnvironmentPreset {
     25,
     25,
     hasRiver: true,
+  ),
+  pineUplands(
+    'Pine Uplands',
+    'Discoverable · dense conifer stands around rocky passes. Forestry thrives; winter snow slows exposed roads.',
+    60,
+    18,
+    36,
+  ),
+  saltCoast(
+    'Salt Coast',
+    'Discoverable · a broad tidal shore and inland inlet divide wet ground. Stone approaches and short bridges keep trade moving.',
+    22,
+    45,
+    14,
   );
 
   final String label, description;
@@ -115,7 +129,7 @@ int seedNumber(String input) {
 }
 
 class GenerationInfo {
-  static const currentVersion = 3;
+  static const currentVersion = 4;
   final String seedText;
   final EnvironmentPreset preset;
   final int version, environmentVariant;

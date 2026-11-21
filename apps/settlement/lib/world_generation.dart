@@ -144,7 +144,15 @@ abstract final class WorldGeneration {
       var terrain = old.terrain == Terrain.forest
           ? Terrain.ground
           : old.terrain;
-      if (preset == EnvironmentPreset.wetlands) {
+      if (preset == EnvironmentPreset.saltCoast) {
+        final shore = 6 + variation(base.seed, Cell(c.x ~/ 5, 0), 2309) % 3;
+        final inlet = 22 + geometry.state % 3;
+        if (c.y < shore || (c.x - inlet).abs() <= 1 && c.y < 23) {
+          terrain = Terrain.water;
+        } else if (c.y <= shore + 2 || (c.x - inlet).abs() == 2 && c.y < 24) {
+          terrain = Terrain.marsh;
+        }
+      } else if (preset == EnvironmentPreset.wetlands) {
         if ((c.y - tributary).abs() <= 1 && c.x >= 12 ||
             (c.y - 24).abs() <= 1 && c.x >= 12) {
           terrain = Terrain.water;
@@ -170,7 +178,10 @@ abstract final class WorldGeneration {
       // Preserve the known affordable opening, plus a second dry corridor. All
       // six presets retain the original 11x9 clearing and eight arrival roads.
       if (c.x <= 10 && c.y >= 11 && c.y <= 19 ||
-          (c.y - 15).abs() <= 1 && old.terrain != Terrain.water) {
+          (c.y - 15).abs() <= 1 &&
+              (preset == EnvironmentPreset.saltCoast
+                  ? terrain != Terrain.water
+                  : old.terrain != Terrain.water)) {
         terrain = Terrain.ground;
       }
       lots[c.y * base.width + c.x] = Lot(
@@ -242,6 +253,7 @@ abstract final class WorldGeneration {
         canonicalSeed(input),
         preset,
         base.generation!.environmentVariant,
+        version: preset.index >= EnvironmentPreset.pineUplands.index ? 4 : 3,
       ),
     );
   }
