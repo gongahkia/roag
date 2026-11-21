@@ -1,0 +1,13 @@
+{
+  "url": "https://gabrielongzm.com/roag/settlement/",
+  "mainJsSha256": "54f0e446143df6e969c2343ef01e6858cab23ab0a352f64ceee4d961e7076e73",
+  "input": "Fresh isolated Chromium. Byte-identical normal paid-play export, real pointer opens Region map.",
+  "checks": [
+    "Actual public build loads all assets",
+    "Three-town normal export remains exact",
+    "Regional map opens",
+    "Matches fully playtested bundle"
+  ],
+  "errors": [],
+  "failedAssets": []
+}

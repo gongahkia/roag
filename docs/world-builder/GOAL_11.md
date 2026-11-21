@@ -282,7 +282,14 @@ The loaded public and local `main.dart.js` both hash to
 `54f0e446143df6e969c2343ef01e6858cab23ab0a352f64ceee4d961e7076e73`.
 The public browser completed the **entire 13-check paid journey**, including the
 previously split local checks, with no page errors or failed assets. No deployment
-blocker remains. The web text-fetch tool could not access this Flutter page;
+blocker remains. The final documentation/terminal-check follow-up also passed
+[44920296872](https://github.com/gongahkia/roag/actions/runs/44920296872), with the
+same application bytes. A fresh hosted browser reloaded the exact normal
+three-town export and opened its map successfully:
+[latest checks](evidence/goal-11/public-latest.json),
+[latest screenshot](evidence/goal-11/public-latest.png),
+[latest deployment](evidence/goal-11/deployment-latest.json).
+The web text-fetch tool could not access this Flutter page;
 Chromium and direct asset download did, and are the actual verification evidence.
 
 Only the existing GitHub Pages workflow and the exact additional
