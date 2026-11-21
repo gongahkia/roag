@@ -193,7 +193,7 @@ class SettlementRegion {
   }
 
   void setSpeed(int value) {
-    if (![0, 1, 2, 4, 16].contains(value)) {
+    if (!Rules.simulationSpeeds.contains(value)) {
       throw const FormatException('Invalid regional speed.');
     }
     for (final t in towns.values) {

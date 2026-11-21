@@ -48,6 +48,13 @@
     return JSON.stringify(unpack(root.value));
   }
   window.settlementPlatform = {
+    registerDebug(read, command) {
+      window.settlementDebug = Object.freeze({
+        snapshot: () => JSON.parse(read()),
+        command: value => JSON.parse(command(JSON.stringify(value))),
+      });
+    },
+    unregisterDebug() { delete window.settlementDebug; },
     reportMetrics(text) { window.settlementMetrics = JSON.parse(text); },
     hideLoading() { document.getElementById('loading')?.remove(); },
     watchActivity(callback) {

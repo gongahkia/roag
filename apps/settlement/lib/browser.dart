@@ -50,3 +50,13 @@ void mute(bool value) => _mute(value.toJS);
 @JS('settlementPlatform.reportMetrics')
 external void _reportMetrics(JSString text);
 void reportMetrics(String text) => _reportMetrics(text.toJS);
+
+@JS('settlementPlatform.registerDebug')
+external void _registerDebug(JSFunction read, JSFunction command);
+@JS('settlementPlatform.unregisterDebug')
+external void unregisterDebug();
+void registerDebug(String Function() read, String Function(String) command) =>
+    _registerDebug(
+      (() => read().toJS).toJS,
+      ((JSString text) => command(text.toDart).toJS).toJS,
+    );

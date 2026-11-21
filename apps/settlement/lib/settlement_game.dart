@@ -35,6 +35,7 @@ class SettlementGame extends FlameGame {
   Cell? inspectedCell;
   double _stateAge = 0, _saveAge = 0, _lastCheckpointClock = 0;
   bool suspended = false;
+  bool debugOverlay = false;
   final bool profile;
   final List<int> modelMicros = [], presentationMicros = [];
   int modelCalls = 0;
@@ -815,6 +816,51 @@ class _LandscapeLayer extends Component {
         ..isAntiAlias = false,
     );
     final visible = game.camera.visibleWorldRect.inflate(14);
+    if (game.debugOverlay) {
+      final grid = Paint()
+        ..color = const Color(0x407f9176)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .25
+        ..isAntiAlias = false;
+      for (
+        var y = math.max(0, (visible.top / 12).floor());
+        y < math.min(scene.height, (visible.bottom / 12).ceil());
+        y++
+      ) {
+        for (
+          var x = math.max(0, (visible.left / 12).floor());
+          x < math.min(scene.width, (visible.right / 12).ceil());
+          x++
+        ) {
+          final cell = Cell(x, y),
+              rect = Rect.fromLTWH(x * 12.0, y * 12.0, 12, 12);
+          canvas.drawRect(rect, grid);
+          if (scene.at(cell).path) {
+            canvas.drawRect(
+              rect.deflate(.4),
+              Paint()
+                ..color = scene.activePaths.contains(cell)
+                    ? const Color(0x506bbf74)
+                    : const Color(0x80dc8065),
+            );
+          }
+        }
+      }
+      final paint = Paint()
+        ..color = const Color(0xcc88c5e0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = .5;
+      for (final person
+          in game.colony.actors
+              .where((p) => visible.contains(Offset(p.x * 12, p.y * 12)))
+              .take(32)) {
+        final path = Path()..moveTo(person.x * 12, person.y * 12);
+        for (final c in person.route.take(24)) {
+          path.lineTo((c.x + .5) * 12, (c.y + .5) * 12);
+        }
+        canvas.drawPath(path, paint);
+      }
+    }
     final hazard = game.colony.incident;
     if (hazard?.kind == IncidentKind.flood) {
       for (final c in hazard!.flood) {

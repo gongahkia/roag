@@ -18,6 +18,8 @@ import 'world_generation.dart';
 import 'world_creation.dart';
 import 'region.dart';
 import 'region_map.dart';
+import 'debug_session.dart';
+import 'debug_panel.dart';
 
 void main() => runApp(const SettlementApp());
 
@@ -78,6 +80,10 @@ class _LandscapePageState extends State<LandscapePage> {
   Conversation? conversation;
   Cell? contextBuilding;
   Offset? contextAnchor;
+  SettlementDebugSession? debugSession;
+  List<double>? normalCamera;
+  bool normalMigrationSafe = true;
+  String normalSaveStatus = '';
 
   @override
   void initState() {
@@ -160,6 +166,10 @@ class _LandscapePageState extends State<LandscapePage> {
   }
 
   bool save() {
+    if (debugSession != null) {
+      saveStatus = 'Sudo copy · normal autosave paused';
+      return false;
+    }
     try {
       if (!migrationSafe) throw StateError('Original save is protected.');
       if (!region.persist(region.snapshot(), browser.saveLocal)) {
@@ -496,7 +506,9 @@ class _LandscapePageState extends State<LandscapePage> {
     game.clearPreview();
     game.menuVisible = true;
     try {
-      if (action == 'region') {
+      if (action == 'sudo') {
+        enterDebug();
+      } else if (action == 'region') {
         await showDialog<void>(
           context: context,
           builder: (_) => RegionMapDialog(
@@ -814,11 +826,103 @@ class _LandscapePageState extends State<LandscapePage> {
       town.colony.rebaseNavigation(revision);
     }
     region = next;
+    debugSession?.region = next;
     game.region = region;
     game.colony = colony;
     game.resetPresentation();
     conversation = null;
     revealHud();
+  }
+
+  void enterDebug() {
+    if (debugSession != null) return;
+    save();
+    final debug = SettlementDebugSession(region);
+    normalCamera = [
+      game.camera.viewfinder.position.x,
+      game.camera.viewfinder.position.y,
+      game.camera.viewfinder.zoom,
+    ];
+    normalMigrationSafe = migrationSafe;
+    normalSaveStatus = saveStatus;
+    debugSession = debug;
+    region = debug.region;
+    game.region = region;
+    game.colony = colony;
+    game.debugOverlay = true;
+    game.resetPresentation();
+    conversation = null;
+    saveStatus = 'Sudo copy · normal autosave paused';
+    browser.registerDebug(
+      () {
+        try {
+          return debug.snapshot();
+        } catch (e) {
+          return jsonEncode({'ok': false, 'error': '$e'});
+        }
+      },
+      (text) {
+        try {
+          if (!mounted || !identical(debugSession, debug) || menuOpen) {
+            throw StateError('Sudo is inactive or a menu is open.');
+          }
+          final data = jsonDecode(text);
+          if (data is! Map<String, dynamic>)
+            throw const FormatException('Command must be an object.');
+          final result = runDebug(data);
+          return jsonEncode({
+            'ok': true,
+            'message': result,
+            'diagnostics': debug.diagnostics,
+          });
+        } catch (e) {
+          return jsonEncode({'ok': false, 'error': '$e'});
+        }
+      },
+    );
+    tell('Sudo copy opened. The normal region is frozen and protected.');
+  }
+
+  String runDebug(Map<String, dynamic> data) {
+    final debug = debugSession;
+    if (debug == null) throw StateError('Open Sudo / Debug first.');
+    cancelGesture();
+    final message = debug.command(data);
+    setState(() {});
+    tell(message);
+    return message;
+  }
+
+  void debugAction(Map<String, dynamic> data) {
+    try {
+      runDebug(data);
+    } catch (e) {
+      tell('$e');
+    }
+    focus.requestFocus();
+  }
+
+  void leaveDebug() {
+    final debug = debugSession;
+    if (debug == null || menuOpen) return;
+    cancelGesture();
+    debug.close();
+    browser.unregisterDebug();
+    region = debug.original;
+    debugSession = null;
+    game.region = region;
+    game.colony = colony;
+    game.debugOverlay = false;
+    game.resetPresentation();
+    conversation = null;
+    migrationSafe = normalMigrationSafe;
+    saveStatus = normalSaveStatus;
+    final camera = normalCamera!;
+    game.camera.viewfinder.position.setValues(camera[0], camera[1]);
+    game.camera.viewfinder.zoom = camera[2];
+    tell('Returned to the normal region. Sudo changes were discarded.');
+    setState(() {});
+    focus.requestFocus();
   }
 
   void visitTown(String id) {
@@ -871,6 +975,7 @@ class _LandscapePageState extends State<LandscapePage> {
   }
 
   void setSpeed(int speed) {
+    if (debugSession == null && ![0, 1, 2, 4, 16].contains(speed)) return;
     setState(() => region.setSpeed(speed));
     save();
     focus.requestFocus();
@@ -1197,6 +1302,27 @@ class _LandscapePageState extends State<LandscapePage> {
           padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
           child: Column(
             children: [
+              if (debugSession != null)
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'SUDO · DISPOSABLE COPY',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xffead39b),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: menuOpen ? null : leaveDebug,
+                      child: const Text(
+                        'Exit Sudo',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
               Row(
                 children: [
                   Expanded(
@@ -1302,7 +1428,7 @@ class _LandscapePageState extends State<LandscapePage> {
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       child: Text(
-                        'Day ${colony.day} · ${colony.phase}\n${colony.season.label} · ${colony.weather.label}${colony.speed == 16 ? ' · 16×' : ''}',
+                        'Day ${colony.day} · ${colony.phase}\n${colony.season.label} · ${colony.weather.label}${colony.speed > 4 ? ' · ${colony.speed}×' : ''}',
                         style: const TextStyle(fontSize: 10),
                       ),
                     ),
@@ -1372,6 +1498,11 @@ class _LandscapePageState extends State<LandscapePage> {
                       const PopupMenuItem(
                         value: 'world',
                         child: Text('World information & seed'),
+                      ),
+                      PopupMenuItem(
+                        value: 'sudo',
+                        enabled: debugSession == null,
+                        child: const Text('Sudo / Debug view'),
                       ),
                       PopupMenuItem(
                         value: 'unlimited',
@@ -1484,6 +1615,17 @@ class _LandscapePageState extends State<LandscapePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (debugSession != null) ...[
+                    SettlementDebugPanel(
+                      session: debugSession!,
+                      command: debugAction,
+                      overlay: game.debugOverlay,
+                      toggleOverlay: () => setState(
+                        () => game.debugOverlay = !game.debugOverlay,
+                      ),
+                    ),
+                    const Divider(color: Color(0xff475441)),
+                  ],
                   if (game.inspection != null || conversation != null) ...[
                     inspectionPanel(),
                     const Divider(color: Color(0xff475441)),
@@ -1899,6 +2041,8 @@ class _LandscapePageState extends State<LandscapePage> {
 
   @override
   void dispose() {
+    debugSession?.close();
+    browser.unregisterDebug();
     browser.unwatchActivity();
     HardwareKeyboard.instance.removeHandler(hardwareKey);
     hudScroll.dispose();

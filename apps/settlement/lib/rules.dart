@@ -1,5 +1,6 @@
 // all tunable colony rules use simulation seconds and thousandths of a coin.
 abstract final class Rules {
+  static const simulationSpeeds = [0, 1, 2, 4, 8, 12, 16, 20];
   static const requestLimit = 3, requestBenefit = 5, civicBenefit = 5;
   static const requestDuration = 75.0, civicDuration = 75.0;
   static const civicCost = 3000, civicGuests = 6;

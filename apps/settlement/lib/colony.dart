@@ -1639,8 +1639,9 @@ class Colony extends Residents {
             calendar: Calendar(anchorDay: (colony.clock / Rules.day).floor()),
             environment: world.generation?.preset ?? EnvironmentPreset.plains,
           );
-    colony.speed = integer(d, 'speed', 0, 16);
-    if (![0, 1, 2, 4, if (data['schema'] >= 4) 16].contains(colony.speed)) {
+    colony.speed = integer(d, 'speed', 0, 20);
+    if (!Rules.simulationSpeeds.contains(colony.speed) ||
+        data['schema'] < 4 && colony.speed > 4) {
       throw const FormatException('Invalid speed.');
     }
     colony.grantFraction = number(d, 'grantFraction', 0, 1);
